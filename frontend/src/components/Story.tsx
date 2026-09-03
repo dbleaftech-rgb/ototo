@@ -7,9 +7,10 @@ interface StoryProps {
   deal: any;
   report: any;
   onUnlock: () => void;
+  onSearchClick?: () => void;
 }
 
-export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock }) => {
+export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchClick }) => {
   const [slide, setSlide] = useState(0);
   const totalSlides = 5;
 
@@ -94,8 +95,32 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock }) => {
         <div className="ototo-logo">
           <Logo height={18} />
         </div>
-        <Plate plate={deal?.plate || '70086701'} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Plate plate={deal?.plate || '70086701'} onClick={onSearchClick} />
+        </div>
       </header>
+
+      {/* Top Banner to switch vehicle */}
+      {onSearchClick && (
+        <div
+          onClick={onSearchClick}
+          style={{
+            background: isDark ? 'rgba(215, 255, 62, 0.1)' : 'rgba(14, 15, 17, 0.04)',
+            borderBottom: isDark ? '1px solid rgba(215, 255, 62, 0.2)' : '1px solid rgba(14, 15, 17, 0.08)',
+            padding: '7px 14px',
+            fontSize: '11.5px',
+            fontWeight: 700,
+            color: isDark ? '#D7FF3E' : '#0E0F11',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+          }}
+        >
+          <span>🔍 רוצה לבדוק רכב אחר במאגרי משרד התחבורה?</span>
+          <span style={{ textDecoration: 'underline' }}>לחץ כאן ←</span>
+        </div>
+      )}
 
       {/* Slide Body */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

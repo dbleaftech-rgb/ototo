@@ -103,13 +103,15 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Floating Search Pill to test any car */}
+      {/* Centered Floating Search Pill */}
       <div
         style={{
           position: 'fixed',
           bottom: '20px',
-          right: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
           zIndex: 100,
+          whiteSpace: 'nowrap',
         }}
       >
         <button
@@ -117,13 +119,13 @@ export const App: React.FC = () => {
           style={{
             background: '#0E0F11',
             color: '#D7FF3E',
-            border: '1px solid rgba(255,255,255,0.2)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            border: '1.5px solid rgba(215, 255, 62, 0.5)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
             borderRadius: '24px',
-            padding: '10px 16px',
+            padding: '10px 20px',
             fontFamily: 'Heebo, sans-serif',
             fontWeight: 800,
-            fontSize: '13px',
+            fontSize: '13.5px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -131,7 +133,7 @@ export const App: React.FC = () => {
           }}
         >
           <span>🔍</span>
-          <span>בדיקת רכב אחר</span>
+          <span>בדיקת רכב אחר במשרד התחבורה</span>
         </button>
       </div>
 
@@ -141,7 +143,8 @@ export const App: React.FC = () => {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.7)',
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
             zIndex: 150,
             display: 'flex',
             alignItems: 'center',
@@ -157,10 +160,11 @@ export const App: React.FC = () => {
               maxWidth: '360px',
               padding: '24px',
               borderRadius: '8px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="hkick">בדיקה חיה במשרד התחבורה</div>
+            <div className="hkick">בדיקה חיה במאגרים הממשלתיים</div>
             <h3 style={{ font: '900 20px/1.2 Heebo, sans-serif', margin: '6px 0 14px' }}>
               הזנת מספר רכב לבדיקה
             </h3>
@@ -175,7 +179,7 @@ export const App: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '14px',
-                  fontSize: '20px',
+                  fontSize: '22px',
                   textAlign: 'center',
                   fontFamily: 'var(--mono-font)',
                   fontWeight: 700,
@@ -208,11 +212,16 @@ export const App: React.FC = () => {
       )}
 
       {mode === 'hub' ? (
-        <DealHub deal={deal} report={report} />
+        <DealHub
+          deal={deal}
+          report={report}
+          onSearchClick={() => setSearchOpen(true)}
+        />
       ) : (
         <Story
           deal={deal}
           report={report}
+          onSearchClick={() => setSearchOpen(true)}
           onUnlock={() => {
             setMode('hub');
             window.history.pushState({}, '', '?mode=hub');

@@ -2,6 +2,7 @@ import React from 'react';
 
 interface PlateProps {
   plate: string;
+  onClick?: () => void;
 }
 
 export function formatPlate(raw: string): string {
@@ -15,12 +16,23 @@ export function formatPlate(raw: string): string {
   return raw;
 }
 
-export const Plate: React.FC<PlateProps> = ({ plate }) => {
+export const Plate: React.FC<PlateProps> = ({ plate, onClick }) => {
   const formatted = formatPlate(plate);
   return (
-    <div className="il-plate">
+    <div
+      className="il-plate"
+      onClick={onClick}
+      style={{
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'transform 0.1s ease',
+      }}
+      title={onClick ? 'לחץ לבדיקת רכב אחר' : undefined}
+    >
       <span className="il-plate-tab">IL</span>
-      <span className="il-plate-num">{formatted}</span>
+      <span className="il-plate-num">
+        {formatted}
+        {onClick && <span style={{ marginRight: '4px', fontSize: '9px' }}>🔍</span>}
+      </span>
     </div>
   );
 };

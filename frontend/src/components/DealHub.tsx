@@ -6,9 +6,10 @@ import { Gauge } from './Gauge.js';
 interface DealHubProps {
   deal: any;
   report: any;
+  onSearchClick?: () => void;
 }
 
-export const DealHub: React.FC<DealHubProps> = ({ deal, report }) => {
+export const DealHub: React.FC<DealHubProps> = ({ deal, report, onSearchClick }) => {
   const [tab, setTab] = useState<'overview' | 'negotiation' | 'checklist' | 'machon' | 'mou'>('overview');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
@@ -103,8 +104,30 @@ export const DealHub: React.FC<DealHubProps> = ({ deal, report }) => {
         <div className="ototo-logo">
           <Logo height={18} />
         </div>
-        <Plate plate={deal?.plate || '70086701'} />
+        <Plate plate={deal?.plate || '70086701'} onClick={onSearchClick} />
       </header>
+
+      {/* Top Banner to switch vehicle */}
+      {onSearchClick && (
+        <div
+          onClick={onSearchClick}
+          style={{
+            background: 'rgba(14, 15, 17, 0.04)',
+            borderBottom: '1px solid rgba(14, 15, 17, 0.08)',
+            padding: '7px 14px',
+            fontSize: '11.5px',
+            fontWeight: 700,
+            color: '#0E0F11',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+          }}
+        >
+          <span>🔍 רוצה לבדוק רכב אחר במאגרי משרד התחבורה?</span>
+          <span style={{ textDecoration: 'underline' }}>לחץ כאן ←</span>
+        </div>
+      )}
 
       {/* Tabs Bar */}
       <nav className="hub-nav">
