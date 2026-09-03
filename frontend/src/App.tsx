@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Story } from './components/Story.js';
 import { DealHub } from './components/DealHub.js';
 import { SellerApproval } from './components/SellerApproval.js';
+import { LoadingScreen } from './components/LoadingScreen.js';
 
 export const App: React.FC = () => {
   const [deal, setDeal] = useState<any>(null);
@@ -9,6 +10,65 @@ export const App: React.FC = () => {
   const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
   const [mode, setMode] = useState<'story' | 'hub'>('story');
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [searchPlate, setSearchPlate] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const loadDealByToken = (token: string) => {
+    setLoading(true);
+    fetch(`/api/deal?token=${encodeURIComponent(token)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setDeal(data.deal);
+          setReport(data.report);
+          setRole(data.role || 'buyer');
+          if (data.deal?.isPaid || data.deal?.stage !== 'free_info') {
+            setMode('hub');
+          }
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  };
+
+  const handleSearchVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = searchPlate.replace(/\D/g, '');
+    if (clean.length < 7 || clean.length > 8) {
+      alert('מספר רישוי בישראל כולל 7 או 8 ספרות');
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const res = await fetch('/api/deal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plate: clean,
+          buyerPhone: '0501234567',
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('שגיאה ביצירת הדוח');
+      }
+
+      const data = await res.json();
+      if (data.dealToken) {
+        window.history.pushState({}, '', `?token=${data.dealToken}`);
+        loadDealByToken(data.dealToken);
+        setSearchOpen(false);
+      }
+    } catch {
+      alert('לא הצלחנו לאתר את הרכב במשרד התחבורה. וודאו שהמספר תקין.');
+    } finally {
+      setSearching(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -20,88 +80,19 @@ export const App: React.FC = () => {
     }
 
     if (token) {
-      fetch(`/api/deal?token=${encodeURIComponent(token)}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data) {
-            setDeal(data.deal);
-            setReport(data.report);
-            setRole(data.role || 'buyer');
-            if (data.deal?.isPaid || data.deal?.stage !== 'free_info') {
-              setMode('hub');
-            }
-          }
-          setLoading(false);
-        })
-        .catch(() => {
-          setLoading(false);
-        });
+      loadDealByToken(token);
     } else {
-      // Default demo experience with test car Kia Sportage 2019 (70086701)
-      setDeal({
-        id: 'demo-deal-1',
-        plate: '70086701',
-        adPrice: 79000,
-        stage: 'free_info',
-        sellerToken: 'demo-seller-token',
-      });
-      setReport({
-        vehicleMeta: {
-          makeEn: 'KIA',
-          modelLine: 'SPORTAGE',
-          subModel: 'URBAN',
-          fuelEn: 'PETROL',
-          fuelHe: 'בנזין',
-          year: 2019,
-          vehicleTitle: 'KIA SPORTAGE URBAN 2019',
-        },
-        score: {
-          total: 82,
-          range: { floor: 68, ceil: 95, score: 82 },
-          potential: 94,
-          verdict: 'green',
-          pillars: {
-            accidents_insurance: { score: null, weight: 25, reason: 'ממתין לאישור מוכר לשליפת עבר ביטוח' },
-            ownership_reliability: { score: 85, weight: 20, reason: 'יד 2 פרטית' },
-            mechanical_condition: { score: null, weight: 20, reason: 'ממתין לבדיקת מכון' },
-            vehicle_history_condition: { score: 95, weight: 15, reason: 'ללא שינויי מבנה, ריקולים בוצעו' },
-            km_vs_year: { score: 85, weight: 10, reason: '72,000 ק״מ - תואם לציפייה שנתית' },
-          },
-        },
-        priceAdjust: {
-          base: 79000,
-          final: 74500,
-          steps: [
-            { label: 'אמצע השוק לדגם ושנתון', pct: 0, delta: 0, after: 79000 },
-            { label: 'עבר ליסינג/החכר (שקלול חלקי)', pct: -4.5, delta: -3500, after: 75500 },
-            { label: 'התאמת ק״מ מול השנתון', pct: -1.3, delta: -1000, after: 74500 },
-          ],
-        },
-        findings: [
-          {
-            id: 'F-DISABLED-TAG',
-            title: 'תו נכה פעיל על הרכב',
-            severity: 'warn',
-            detail: 'רשום תו נכה פעיל במשרד התחבורה. יש לשחרר את התו לפני העברת בעלות.',
-          },
-          {
-            id: 'F-RECALL-CLOSED',
-            title: 'קריאת שירות בטיחותית בוצעה במלואה',
-            severity: 'ok',
-            detail: 'בוצע ריקול יצרן לכרית אוויר במוסך מורשה יבואן.',
-          },
-        ],
-      });
-      setLoading(false);
+      // Load real deal 70086701 as default showcase
+      loadDealByToken('28c60ed62edbe499703249d0b62fec17');
     }
   }, []);
 
+  if (searching) {
+    return <LoadingScreen plate={searchPlate} />;
+  }
+
   if (loading) {
-    return (
-      <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-        <div style={{ font: '900 24px/1 Heebo, sans-serif' }}>טוען את הדוח…</div>
-      </div>
-    );
+    return <LoadingScreen plate={deal?.plate} />;
   }
 
   if (role === 'seller') {
@@ -110,16 +101,124 @@ export const App: React.FC = () => {
     return <SellerApproval deal={deal} sellerToken={token} />;
   }
 
-  return mode === 'hub' ? (
-    <DealHub deal={deal} report={report} />
-  ) : (
-    <Story
-      deal={deal}
-      report={report}
-      onUnlock={() => {
-        setMode('hub');
-        window.history.pushState({}, '', '?mode=hub');
-      }}
-    />
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* Floating Search Pill to test any car */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 100,
+        }}
+      >
+        <button
+          onClick={() => setSearchOpen(true)}
+          style={{
+            background: '#0E0F11',
+            color: '#D7FF3E',
+            border: '1px solid rgba(255,255,255,0.2)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            borderRadius: '24px',
+            padding: '10px 16px',
+            fontFamily: 'Heebo, sans-serif',
+            fontWeight: 800,
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span>🔍</span>
+          <span>בדיקת רכב אחר</span>
+        </button>
+      </div>
+
+      {/* Search Modal */}
+      {searchOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 150,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setSearchOpen(false)}
+        >
+          <div
+            className="hcard"
+            style={{
+              width: '100%',
+              maxWidth: '360px',
+              padding: '24px',
+              borderRadius: '8px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="hkick">בדיקה חיה במשרד התחבורה</div>
+            <h3 style={{ font: '900 20px/1.2 Heebo, sans-serif', margin: '6px 0 14px' }}>
+              הזנת מספר רכב לבדיקה
+            </h3>
+            <form onSubmit={handleSearchVehicle}>
+              <input
+                type="text"
+                autoFocus
+                value={searchPlate}
+                onChange={(e) => setSearchPlate(e.target.value.replace(/\D/g, ''))}
+                placeholder="למשל: 70086701"
+                maxLength={8}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  fontSize: '20px',
+                  textAlign: 'center',
+                  fontFamily: 'var(--mono-font)',
+                  fontWeight: 700,
+                  letterSpacing: '2px',
+                  border: '2px solid #0E0F11',
+                  borderRadius: '4px',
+                  marginBottom: '14px',
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => setSearchOpen(false)}
+                  style={{ flex: 1, padding: '12px', textAlign: 'center' }}
+                >
+                  ביטול
+                </button>
+                <button
+                  type="submit"
+                  className="btn-action-dark"
+                  style={{ flex: 2, padding: '12px' }}
+                >
+                  הפקת דוח חי ⚡
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {mode === 'hub' ? (
+        <DealHub deal={deal} report={report} />
+      ) : (
+        <Story
+          deal={deal}
+          report={report}
+          onUnlock={() => {
+            setMode('hub');
+            window.history.pushState({}, '', '?mode=hub');
+          }}
+        />
+      )}
+    </div>
   );
 };

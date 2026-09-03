@@ -10,6 +10,7 @@ import { fetchCheckIdInsurance } from './services/checkIdService.js';
 
 admin.initializeApp();
 const db = admin.firestore();
+db.settings({ ignoreUndefinedProperties: true });
 
 /**
  * REST API entry point

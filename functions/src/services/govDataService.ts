@@ -81,11 +81,11 @@ export async function fetchFullVehicleGovData(plate: string): Promise<VehicleGov
     offRoadRes,
   ] = await Promise.all([
     queryGovDatastore(GOV_RESOURCE_IDS.VEHICLE_REGISTRATION, { mispar_rechev: plateNum }),
-    queryGovDatastore(GOV_RESOURCE_IDS.OWNERSHIP_HISTORY, { MISPAR_RECHEV: plateStr }),
+    queryGovDatastore(GOV_RESOURCE_IDS.OWNERSHIP_HISTORY, { mispar_rechev: plateNum }),
     queryGovDatastore(GOV_RESOURCE_IDS.TEST_HISTORY_AND_KM, { mispar_rechev: plateNum }),
     queryGovDatastore(GOV_RESOURCE_IDS.DISABLED_TAG, { 'MISPAR RECHEV': plateNum }),
     queryGovDatastore(GOV_RESOURCE_IDS.SAFETY_RECALLS, { MISPAR_RECHEV: plateNum }),
-    queryGovDatastore(GOV_RESOURCE_IDS.OFF_ROAD_CANCELLED, { MISPAR_RECHEV: plateNum }),
+    queryGovDatastore(GOV_RESOURCE_IDS.OFF_ROAD_CANCELLED, { mispar_rechev: plateNum }),
   ]);
 
   return {

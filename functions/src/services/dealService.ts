@@ -11,6 +11,7 @@ import {
   Deal,
   Vehicle,
   Finding,
+  FINDINGS_CATALOG,
 } from '@ototo/shared';
 import { fetchFullVehicleGovData } from './govDataService.js';
 import { fetchCheckIdVehicleInfo } from './checkIdService.js';
@@ -31,7 +32,7 @@ export interface CreateDealInput {
 export async function createDeal(
   input: CreateDealInput,
   db: admin.firestore.Firestore
-): Promise<{ dealId: string; dealToken: string; sellerToken: string }> {
+): Promise<{ dealId: string; dealToken: string; sellerToken: string; reportId?: string }> {
   const cleanPlate = input.plate.replace(/\D/g, '');
   const dealToken = generateSecureToken();
   const sellerToken = generateSecureToken();
@@ -57,13 +58,15 @@ export async function createDeal(
 
   await dealRef.set(dealData);
 
-  // Trigger asynchronous report build in background
-  buildReportAsync(dealId, cleanPlate, input, db).catch((err) => {
+  let reportId: string | undefined;
+  try {
+    reportId = await buildReportAsync(dealId, cleanPlate, input, db);
+  } catch (err) {
     console.error(`Failed building report for deal ${dealId}:`, err);
-    dealRef.update({ reportState: 'failed' });
-  });
+    await dealRef.update({ reportState: 'failed' });
+  }
 
-  return { dealId, dealToken, sellerToken };
+  return { dealId, dealToken, sellerToken, reportId };
 }
 
 export async function buildReportAsync(
@@ -71,7 +74,7 @@ export async function buildReportAsync(
   plate: string,
   input: Partial<CreateDealInput>,
   db: admin.firestore.Firestore
-): Promise<void> {
+): Promise<string> {
   const dealRef = db.collection('deals').doc(dealId);
 
   // 1. Fetch Gov Data & CheckID in parallel
@@ -88,22 +91,56 @@ export async function buildReportAsync(
     shnat_yitzur: reg.shnat_yitzur,
   });
 
-  // Calculate hands count from ownership history
+  // Calculate hands count & detect past fleet
   const ownList = govData.ownershipHistory || [];
-  const handsCount = Math.max(1, ownList.filter((r: any) => r.BAALUT !== 'סוחר').length);
+  const validOwns = ownList.filter((r: any) => (r.baalut || r.BAALUT) !== 'סוחר');
+  const handsCount = Math.max(1, validOwns.length);
 
-  // Last test km & engine serial
+  let pastFleetType: any = undefined;
+  let leasingMonths: number | undefined = undefined;
+
+  for (let i = 0; i < validOwns.length; i++) {
+    const b = String(validOwns[i].baalut || validOwns[i].BAALUT || '');
+    const dt = Number(validOwns[i].baalut_dt || validOwns[i].BAALUT_DT || 0);
+
+    if (b.includes('החכר') || b.includes('ליסינג')) {
+      pastFleetType = 'company';
+      // Calculate duration to next hand if available
+      if (dt > 0 && i + 1 < validOwns.length) {
+        const nextDt = Number(validOwns[i + 1].baalut_dt || validOwns[i + 1].BAALUT_DT || 0);
+        if (nextDt > dt) {
+          const y1 = Math.floor(dt / 100), m1 = dt % 100;
+          const y2 = Math.floor(nextDt / 100), m2 = nextDt % 100;
+          leasingMonths = Math.max(1, (y2 - y1) * 12 + (m2 - m1));
+        }
+      }
+      if (!leasingMonths) leasingMonths = 36;
+    } else if (b.includes('השכרה')) {
+      pastFleetType = 'rental';
+    } else if (b.includes('חברה')) {
+      pastFleetType = 'company';
+    } else if (b.includes('מונית')) {
+      pastFleetType = 'taxi';
+    } else if (b.includes('ממשל')) {
+      pastFleetType = 'government';
+    }
+  }
+
+  // Last test km & engine serial & structural flags
   const testRec = govData.testHistory || {};
   const lastTestKm = Number(testRec.kilometer_test_aharon) || undefined;
-  const lastTestDate = testRec.mivchan_acharon_dt ? String(testRec.mivchan_acharon_dt).slice(0, 7) : undefined;
-  const engineSerial = testRec.mispar_manoa || undefined;
+  const lastTestDate = reg.mivchan_acharon_dt ? String(reg.mivchan_acharon_dt).slice(0, 7) : undefined;
+  const engineSerial = testRec.mispar_manoa || reg.degem_manoa || undefined;
+
+  const hasColorChange = Number(testRec.shnui_zeva_ind) === 1;
+  const hasStructuralChange = Number(testRec.shinui_mivne_ind) === 1;
 
   // Save vehicle cache to Firestore
   const vehicleDoc: Vehicle = {
     plate,
     make: meta.make,
     model: meta.model,
-    year: meta.year || 2020,
+    year: meta.year || Number(reg.shnat_yitzur) || 2020,
     subModel: meta.subModel,
     color: reg.tzeva_rechev,
     engineSerial,
@@ -119,35 +156,38 @@ export async function buildReportAsync(
   // 2. Determine findings
   const findings: Finding[] = [];
   if (checkIdInfo?.isStolen) {
-    findings.push({
-      id: 'F-STOLEN',
-      code: 'F-STOLEN',
-      title: 'רכב רשום כגנוב במשטרה',
-      severity: 'risk',
-      category: 'blockers',
-      detail: 'הרכב מסומן כגנוב פעיל. העסקה אינה בת-ביצוע.',
-      isBlocker: true,
-    });
+    findings.push({ id: 'F-STOLEN', ...FINDINGS_CATALOG['F-STOLEN'] });
+  }
+
+  if (govData.isOffRoad) {
+    findings.push({ id: 'F-OFF-ROAD', ...FINDINGS_CATALOG['F-OFF-ROAD'] });
   }
 
   if (govData.hasDisabledTag) {
-    findings.push({
-      id: 'F-DISABLED-TAG',
-      code: 'F-DISABLED-TAG',
-      title: 'תו נכה פעיל על הרכב',
-      severity: 'warn',
-      category: 'blockers',
-      detail: 'על הרכב רשום תו חניה לנכה. נדרש שחרור התו לפני העברת בעלות.',
-      isBlocker: true,
-    });
+    findings.push({ id: 'F-DISABLED-TAG', ...FINDINGS_CATALOG['F-DISABLED-TAG'] });
+  }
+
+  if (Array.isArray(govData.recalls) && govData.recalls.length > 0) {
+    const openRecall = govData.recalls[0];
+    const openDate = new Date(openRecall.TAARICH_PTICHA || openRecall.taarich_pticha || Date.now());
+    const monthsOpen = (Date.now() - openDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+    if (monthsOpen >= 6) {
+      findings.push({ id: 'F-RECALL-BLOCKING', ...FINDINGS_CATALOG['F-RECALL-BLOCKING'] });
+    } else {
+      findings.push({ id: 'F-RECALL-OPEN', ...FINDINGS_CATALOG['F-RECALL-OPEN'] });
+    }
+  }
+
+  if (hasColorChange) {
+    findings.push({ id: 'F-COLOR-CHANGE', ...FINDINGS_CATALOG['F-COLOR-CHANGE'] });
   }
 
   // 3. Compute score
   const scoreResult = computeScore({
     accidentsScore: null, // waiting for seller consent & CheckID insurance
-    ownershipScore: Math.max(50, 100 - (handsCount - 1) * 10),
+    ownershipScore: Math.max(50, 100 - (handsCount - 1) * 10 - (pastFleetType ? 15 : 0)),
     mechanicalScore: null, // waiting for inspection upload
-    historyScore: 95,
+    historyScore: hasColorChange ? 75 : 95,
     kmScore: 85,
     isStolen: checkIdInfo?.isStolen,
     isOffRoad: govData.isOffRoad || false,
@@ -157,12 +197,17 @@ export async function buildReportAsync(
   const basePrice =
     checkIdInfo?.vehiclePrices?.find((p) => p.selected)?.price ||
     input.adPrice ||
-    75000;
+    79000;
 
   const priceAdjust = computeValuation({
     basePrice,
     baseSource: checkIdInfo?.vehiclePrices?.length ? 'guide' : 'ad',
     handsCount,
+    isFirstHandPrivate: handsCount === 1 && !pastFleetType,
+    pastFleetType,
+    leasingMonths,
+    hasColorChange,
+    hasUnspecifiedStructuralChange: hasStructuralChange,
     vehicleYear: meta.year || 2020,
     actualKm: input.declaredKm || lastTestKm,
   });
@@ -177,6 +222,8 @@ export async function buildReportAsync(
     score: scoreResult,
     priceAdjust,
     findings,
+    lastTestKm,
+    lastTestDate,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
   await reportRef.set(reportData);
@@ -187,4 +234,6 @@ export async function buildReportAsync(
     reportState: 'ready',
     updatedAt: new Date().toISOString(),
   });
+
+  return reportRef.id;
 }
