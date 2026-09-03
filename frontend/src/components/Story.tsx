@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Logo } from './Logo.js';
-import { Plate } from './Plate.js';
+import { Plate, formatPlate } from './Plate.js';
 import { Gauge } from './Gauge.js';
 
 interface StoryProps {
@@ -12,55 +12,87 @@ interface StoryProps {
 
 export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchClick }) => {
   const [slide, setSlide] = useState(0);
-  const totalSlides = 5;
+  const totalSlides = 4;
 
   const meta = report?.vehicleMeta || {
-    makeEn: 'KIA',
-    modelLine: 'SPORTAGE',
-    subModel: 'URBAN',
+    makeEn: 'SUZUKI',
+    modelLine: 'JIMNY',
+    subModel: 'GLX',
     fuelEn: 'PETROL',
     fuelHe: 'בנזין',
-    year: 2019,
-    vehicleTitle: 'KIA SPORTAGE URBAN 2019',
+    year: 2022,
+    vehicleTitle: 'SUZUKI JIMNY GLX 2022',
   };
 
   const score = report?.score || {
-    total: 82,
-    range: { floor: 68, ceil: 95, score: 82 },
-    potential: 94,
-    verdict: 'green',
+    total: 68,
+    range: { floor: 43, ceil: 93, score: 68 },
+    potential: 93,
+    verdict: 'yellow',
     pillars: {},
   };
 
   const priceAdjust = report?.priceAdjust || {
     base: 79000,
-    final: 74500,
+    final: 73552,
     steps: [
-      { label: 'אמצע השוק לדגם ושנתון', pct: 0, delta: 0, after: 79000 },
-      { label: 'עבר ליסינג/החכר (שקלול חלקי)', pct: -4.5, delta: -3500, after: 75500 },
-      { label: 'התאמת ק״מ מול השנתון', pct: -1.3, delta: -1000, after: 74500 },
+      { label: 'עבר ליסינג/החכר (4 חודשים)', pct: -6.4, delta: -5056, after: 73944 },
+      { label: 'יד 3 (שקלול חלקי)', pct: -2.0, delta: -1479, after: 72465 },
+      { label: 'ק״מ נמוך מהממוצע (35,908 ק״מ)', pct: 1.5, delta: 1087, after: 73552 },
     ],
   };
 
   const findings = report?.findings || [
     {
-      id: 'F-DISABLED-TAG',
-      title: 'תו נכה פעיל על הרכב',
-      severity: 'warn',
-      detail: 'על הרכב רשום תו חניה לנכה. לא ניתן להעביר בעלות עד שהמוכר ישחרר את התו.',
-    },
-    {
       id: 'F-RECALL-CLOSED',
-      title: 'קריאת שירות בטיחותית בוצעה במלואה',
+      title: 'קריאות שירות יצרן בוצעו',
       severity: 'ok',
-      detail: 'בוצע ריקול יצרן למחשב כריות אוויר במוסך מורשה.',
+      detail: 'לא נמצאו ריקולים בטיחותיים פתוחים במאגר משרד התחבורה.',
     },
   ];
 
-  const adPrice = deal?.adPrice || 79000;
-  const gap = adPrice - priceAdjust.final;
+  const adPrice = deal?.adPrice || priceAdjust.base || 79000;
+  const finalPrice = priceAdjust.final || adPrice;
+  const gap = adPrice - finalPrice;
 
-  const isDark = slide === 1 || slide === 4;
+  // Real specs values from backend
+  const handsCount = deal?.currentHands || report?.vehicleMeta?.hand || report?.currentHands || 3;
+  const kmVal = report?.lastTestKm || deal?.declaredKm || 35908;
+  const fuelVal = meta.fuelHe || 'בנזין';
+  const colorVal = meta.color || report?.vehicleMeta?.color || 'שחור';
+
+  const specsList = [
+    { label: 'יד', value: `יד ${handsCount}` },
+    { label: 'ק״מ', value: Number(kmVal).toLocaleString() },
+    { label: 'דלק', value: fuelVal },
+    { label: 'צבע', value: colorVal },
+    { label: 'מבוקש', value: `₪ ${adPrice.toLocaleString()}` },
+  ];
+
+  const isDark = slide === 1 || slide === 3;
+
+  const nextSlide = () => {
+    if (slide < totalSlides - 1) {
+      setSlide((s) => s + 1);
+    }
+  };
+
+  const prevSlide = () => {
+    if (slide > 0) {
+      setSlide((s) => s - 1);
+    }
+  };
+
+  const handleSlideTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    // In RTL: right 30% goes back, remaining 70% advances
+    if (x > rect.width * 0.7) {
+      prevSlide();
+    } else {
+      nextSlide();
+    }
+  };
 
   return (
     <div
@@ -68,203 +100,297 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        background: isDark ? '#121110' : '#FFFFFF',
+        background: isDark
+          ? '#121110'
+          : 'linear-gradient(178deg, #FFFDFB 0%, #F3F0EB 56%, #E8E3DB 100%)',
         color: isDark ? '#FFFFFF' : '#0E0F11',
+        userSelect: 'none',
       }}
     >
-      {/* Top Progress Segments */}
-      <div className={`story-bar ${isDark ? 'dark' : ''}`}>
+      {/* 1. Top Progress Segments (4 bars) */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '5px',
+          padding: '12px 16px 8px',
+          background: 'transparent',
+        }}
+      >
         {Array.from({ length: totalSlides }).map((_, i) => (
           <div
             key={i}
-            className={`story-bar-seg ${
-              i === slide ? 'active' : i < slide ? 'completed' : ''
-            }`}
+            style={{
+              flex: 1,
+              height: '2.5px',
+              borderRadius: '2px',
+              background:
+                i === slide
+                  ? '#0E0F11'
+                  : i < slide
+                  ? 'rgba(14, 15, 17, 0.4)'
+                  : 'rgba(14, 15, 17, 0.15)',
+              ...(isDark
+                ? {
+                    background:
+                      i === slide
+                        ? '#D7FF3E'
+                        : i < slide
+                        ? '#FFFFFF'
+                        : 'rgba(255, 255, 255, 0.2)',
+                  }
+                : {}),
+            }}
           />
         ))}
       </div>
 
-      {/* Header */}
+      {/* 2. Top Header Bar (Matching Screenshot Exactly) */}
       <header
-        className="ototo-header"
         style={{
-          background: isDark ? '#121110' : '#FFFFFF',
-          borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(14,15,17,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 16px 10px',
+          background: 'transparent',
         }}
       >
-        <div className="ototo-logo">
-          <Logo height={18} />
+        {/* Left: + רכב חדש Button */}
+        <button
+          onClick={onSearchClick}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            font: '600 12px/1 Heebo, sans-serif',
+            color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(14,15,17,0.65)',
+            cursor: 'pointer',
+            padding: '4px 0',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '15px',
+              height: '15px',
+              borderRadius: '50%',
+              border: `1.2px solid ${isDark ? 'rgba(255,255,255,0.7)' : 'rgba(14,15,17,0.65)'}`,
+              fontSize: '11px',
+              lineHeight: 1,
+            }}
+          >
+            +
+          </span>
+          <span>רכב חדש</span>
+        </button>
+
+        {/* Center: Monospace License Plate Text */}
+        <div
+          dir="ltr"
+          style={{
+            font: "700 14.5px/1 'IBM Plex Mono', monospace",
+            color: isDark ? '#FFFFFF' : '#0E0F11',
+            letterSpacing: '0.5px',
+          }}
+        >
+          {formatPlate(deal?.plate || '10976303')}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Plate plate={deal?.plate || '70086701'} onClick={onSearchClick} />
+
+        {/* Right: Official Ototo Logo */}
+        <div style={{ color: isDark ? '#FFFFFF' : '#0E0F11' }}>
+          <Logo height={16} />
         </div>
       </header>
 
-      {/* Top Banner to switch vehicle */}
-      {onSearchClick && (
-        <div
-          onClick={onSearchClick}
-          style={{
-            background: isDark ? 'rgba(215, 255, 62, 0.1)' : 'rgba(14, 15, 17, 0.04)',
-            borderBottom: isDark ? '1px solid rgba(215, 255, 62, 0.2)' : '1px solid rgba(14, 15, 17, 0.08)',
-            padding: '7px 14px',
-            fontSize: '11.5px',
-            fontWeight: 700,
-            color: isDark ? '#D7FF3E' : '#0E0F11',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-          }}
-        >
-          <span>🔍 רוצה לבדוק רכב אחר במאגרי משרד התחבורה?</span>
-          <span style={{ textDecoration: 'underline' }}>לחץ כאן ←</span>
-        </div>
-      )}
-
-      {/* Slide Body */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* 3. Main Slide Body */}
+      <main
+        onClick={handleSlideTap}
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          cursor: 'pointer',
+          padding: '0 0 12px',
+        }}
+      >
         {slide === 0 && (
           <div
             style={{
-              background: 'linear-gradient(178deg, #FFFDFB 0%, #F3F0EB 56%, #E8E3DB 100%)',
-              padding: '24px 16px 30px',
-              textAlign: 'center',
               flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              textAlign: 'center',
             }}
           >
-            <div
-              dir="ltr"
-              style={{
-                font: '900 32px/1 Heebo, sans-serif',
-                color: '#0E0F11',
-                letterSpacing: '-1px',
-              }}
-            >
-              {meta.modelLine || meta.model || 'SPORTAGE'}
-            </div>
-            <div
-              dir="ltr"
-              style={{
-                font: "600 10px/1 'IBM Plex Mono', monospace",
-                color: 'rgba(14, 15, 17, 0.6)',
-                letterSpacing: '1.5px',
-                marginTop: '6px',
-              }}
-            >
-              {[meta.makeEn || 'KIA', meta.subModel, meta.fuelEn, meta.year]
-                .filter(Boolean)
-                .join(' · ')}
+            {/* Model Headline & Subtitle */}
+            <div style={{ padding: '8px 16px 0' }}>
+              <h1
+                dir="ltr"
+                style={{
+                  font: '900 38px/.95 Heebo, sans-serif',
+                  color: '#0E0F11',
+                  letterSpacing: '-1.5px',
+                  margin: 0,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {meta.modelLine || meta.model || 'JIMNY'}
+              </h1>
+              <div
+                dir="ltr"
+                style={{
+                  font: "600 9.5px/1 'IBM Plex Mono', monospace",
+                  color: 'rgba(14, 15, 17, 0.55)',
+                  letterSpacing: '2px',
+                  marginTop: '7px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {[meta.makeEn || 'SUZUKI', meta.subModel || 'GLX', meta.fuelEn || 'PETROL', meta.year || 2022]
+                  .filter(Boolean)
+                  .join('  ·  ')}
+              </div>
             </div>
 
             {/* 31-Segment Radial Gauge */}
-            <Gauge
-              score={score.total}
-              floorScore={score.range.floor}
-              ceilScore={score.range.ceil}
-              hasRange={true}
-              scale={1.0}
-            />
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                marginTop: '12px',
-              }}
-            >
-              <span
-                style={{
-                  width: '7px',
-                  height: '7px',
-                  background: '#3F7A2E',
-                  borderRadius: '50%',
-                }}
+            <div style={{ marginTop: '-4px' }}>
+              <Gauge
+                score={score.total}
+                floorScore={score.range.floor}
+                ceilScore={score.range.ceil}
+                hasRange={true}
+                scale={1.0}
               />
-              <span style={{ font: '800 13px/1 Heebo, sans-serif' }}>
-                מצב כללי: טוב מאוד
-              </span>
-            </div>
 
-            <div
-              style={{
-                font: '400 11.5px/1.5 Heebo, sans-serif',
-                color: 'rgba(14, 15, 17, 0.62)',
-                marginTop: '6px',
-              }}
-            >
-              הציון בטווח{' '}
-              <strong style={{ color: '#0E0F11' }}>
-                {score.range.floor}–{score.range.ceil}
-              </strong>{' '}
-              · על סמך 55% מהנתונים
-            </div>
-
-            {/* Specs Pills */}
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                gap: '6px',
-                marginTop: '22px',
-              }}
-            >
-              <div className="chip">
-                <span className="sq sqf-ok" />
-                יד 2 פרטית
-              </div>
-              <div className="chip">
-                <span className="sq sqf-ok" />
-                72,000 ק״מ
-              </div>
-              <div className="chip">
-                <span className="sq sqf-ok" />
-                {meta.fuelHe || 'בנזין'}
-              </div>
-              <div className="chip">
-                <span className="sq sqf-warn" />
-                מבוקש ₪{adPrice.toLocaleString()}
-              </div>
-            </div>
-
-            {/* Heat Strip (D-094) */}
-            <div
-              style={{
-                marginTop: '24px',
-                padding: '12px 14px',
-                background: '#FFFFFF',
-                border: '1px solid rgba(14, 15, 17, 0.08)',
-                textAlign: 'right',
-              }}
-            >
+              {/* Status Row with Black Square (Matching Screenshot) */}
               <div
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  font: '700 12px/1.3 Heebo, sans-serif',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
                 }}
               >
-                <span>כמה מהר נמכר הדגם הזה?</span>
-                <strong>בדרך כלל: 16 ימים</strong>
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    background: '#0E0F11',
+                    display: 'inline-block',
+                  }}
+                />
+                <span
+                  style={{
+                    font: '800 13px/1 Heebo, sans-serif',
+                    color: '#0E0F11',
+                  }}
+                >
+                  עוד מוקדם להכריע
+                </span>
               </div>
+
+              {/* Subtitle Line */}
               <div
                 style={{
-                  font: '400 11px/1.5 Heebo, sans-serif',
-                  color: 'rgba(14, 15, 17, 0.65)',
-                  marginTop: '4px',
+                  font: '400 11px/1.4 Heebo, sans-serif',
+                  color: 'rgba(14, 15, 17, 0.55)',
+                  marginTop: '5px',
                 }}
               >
-                המודעה הזו 5 ימים באוויר — עדיין טרייה בשוק.
+                הציון בטווח{' '}
+                <strong style={{ fontWeight: 800, color: '#0E0F11' }}>
+                  {score.range.floor}–{score.range.ceil}
+                </strong>{' '}
+                · על סמך 50% מהנתונים
               </div>
+            </div>
+
+            {/* 3D Studio Car Graphic with License Plate on Bumper */}
+            <div
+              style={{
+                position: 'relative',
+                width: '88%',
+                maxWidth: '330px',
+                margin: '10px auto 0',
+              }}
+            >
+              <img
+                src="/assets/car-front.jpg"
+                alt={meta.vehicleTitle}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  mixBlendMode: 'multiply',
+                }}
+              />
+              {/* Israeli License Plate Mounted Right on Bumper */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '15.5%',
+                  left: '50%',
+                  transform: 'translateX(-50%) scale(0.85)',
+                  pointerEvents: 'none',
+                }}
+              >
+                <Plate plate={deal?.plate || '10976303'} />
+              </div>
+            </div>
+
+            {/* 5-Column Specs Table (Matching Screenshot Exactly) */}
+            <div
+              style={{
+                display: 'flex',
+                borderTop: '1px solid rgba(14, 15, 17, 0.09)',
+                borderBottom: '1px solid rgba(14, 15, 17, 0.09)',
+                marginTop: '10px',
+                background: 'rgba(255, 255, 255, 0.25)',
+              }}
+            >
+              {specsList.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    flex: 1,
+                    padding: '11px 4px',
+                    textAlign: 'center',
+                    borderInlineStart:
+                      idx > 0 ? '1px solid rgba(14, 15, 17, 0.08)' : 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      font: '600 9.5px/1 Heebo, sans-serif',
+                      color: 'rgba(14, 15, 17, 0.55)',
+                    }}
+                  >
+                    {item.label}
+                  </div>
+                  <div
+                    style={{
+                      font: '700 11.5px/1.2 Heebo, sans-serif',
+                      color: '#0E0F11',
+                      marginTop: '7px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.value}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
+        {/* Slide 1: Valuation Derivation */}
         {slide === 1 && (
-          <div className="hcard-dark" style={{ flex: 1 }}>
+          <div className="hcard-dark" style={{ flex: 1, margin: '12px 16px', borderRadius: '4px' }}>
             <div className="hkick">02 · שווי מותאם-היסטוריה</div>
             <div
               style={{
@@ -281,7 +407,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                   letterSpacing: '-2px',
                 }}
               >
-                ₪{priceAdjust.final.toLocaleString()}
+                ₪{finalPrice.toLocaleString()}
               </span>
             </div>
 
@@ -350,15 +476,16 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
               >
                 <span>היעד למו״מ:</span>
                 <strong style={{ color: '#D7FF3E' }}>
-                  ₪{priceAdjust.final.toLocaleString()}
+                  ₪{finalPrice.toLocaleString()}
                 </strong>
               </div>
             </div>
           </div>
         )}
 
+        {/* Slide 2: Findings Summary */}
         {slide === 2 && (
-          <div style={{ padding: '24px 16px', flex: 1 }}>
+          <div style={{ padding: '20px 16px', flex: 1 }}>
             <div className="hkick">03 · ממצאי הבדיקה</div>
             <h2 style={{ font: '900 24px/1.2 Heebo, sans-serif', margin: '8px 0 16px' }}>
               נקודות מרכזיות ברכב
@@ -404,65 +531,9 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
           </div>
         )}
 
+        {/* Slide 3: Unlock Full Report CTA */}
         {slide === 3 && (
-          <div style={{ padding: '24px 16px', flex: 1 }}>
-            <div className="hkick">04 · שקיפות וכיסוי</div>
-            <h2 style={{ font: '900 24px/1.2 Heebo, sans-serif', margin: '8px 0 16px' }}>
-              מה נבדק ומה ממתין?
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div className="hcard" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <strong>מרשם משרד התחבורה</strong>
-                  <div className="hmut">שנתון, יד, ביטול רישום, קריאות טסט</div>
-                </div>
-                <span className="sq sqf-ok" style={{ alignSelf: 'center' }} />
-              </div>
-
-              <div className="hcard" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <strong>בדיקת משטרת ישראל</strong>
-                  <div className="hmut">בדיקת רכב גנוב פעיל</div>
-                </div>
-                <span className="sq sqf-ok" style={{ alignSelf: 'center' }} />
-              </div>
-
-              <div
-                className="hcard"
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  background: '#FBFBFB',
-                }}
-              >
-                <div>
-                  <strong>עבר תאונות וביטוח (בדוח המלא)</strong>
-                  <div className="hmut">ירידות ערך ותביעות שמאים ממאגר חברות הביטוח</div>
-                </div>
-                <span style={{ fontSize: '14px' }}>🔒</span>
-              </div>
-
-              <div
-                className="hcard"
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  background: '#FBFBFB',
-                }}
-              >
-                <div>
-                  <strong>מצב מכני מדוח מכון (בשלב 2)</strong>
-                  <div className="hmut">פיענוח ליקויים ומנופי מו״מ מתועדים</div>
-                </div>
-                <span style={{ fontSize: '14px' }}>🔒</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {slide === 4 && (
-          <div className="hcard-dark" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div className="hcard-dark" style={{ flex: 1, margin: '12px 16px', display: 'flex', flexDirection: 'column' }}>
             <div className="hkick">קבלת החלטה בטוחה</div>
             <h2
               style={{
@@ -509,7 +580,13 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
             </div>
 
             <div style={{ marginTop: 'auto' }}>
-              <button className="btn-lime" onClick={onUnlock}>
+              <button
+                className="btn-lime"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnlock();
+                }}
+              >
                 פתיחת דוח מלא (79 ₪) 🔓
               </button>
             </div>
@@ -517,49 +594,36 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
         )}
       </main>
 
-      {/* Story Footer Controls */}
+      {/* 4. Bottom Chrome Row (Matching Screenshot: "נגיעה להמשך" on left, "1 / 4" on right) */}
       <footer
         style={{
-          padding: '12px 16px',
-          background: isDark ? '#121110' : '#FFFFFF',
-          borderTop: isDark
-            ? '1px solid rgba(255,255,255,0.1)'
-            : '1px solid rgba(14,15,17,0.08)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          padding: '8px 18px 16px',
+          background: 'transparent',
         }}
       >
-        {slide > 0 ? (
-          <button
-            onClick={() => setSlide((s) => s - 1)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(14,15,17,0.6)',
-              fontFamily: 'Heebo, sans-serif',
-              fontWeight: 700,
-              fontSize: '13.5px',
-              cursor: 'pointer',
-            }}
-          >
-            ← הקודם
-          </button>
-        ) : (
-          <div />
-        )}
+        <div
+          onClick={nextSlide}
+          style={{
+            font: '400 11.5px/1 Heebo, sans-serif',
+            color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(14, 15, 17, 0.45)',
+            cursor: 'pointer',
+          }}
+        >
+          {slide < totalSlides - 1 ? 'נגיעה להמשך' : ''}
+        </div>
 
-        {slide < totalSlides - 1 ? (
-          <button
-            onClick={() => setSlide((s) => s + 1)}
-            className="btn-action-dark"
-            style={{ width: 'auto', padding: '10px 24px' }}
-          >
-            הבא ←
-          </button>
-        ) : (
-          <div />
-        )}
+        <div
+          dir="ltr"
+          style={{
+            font: "600 11px/1 'IBM Plex Mono', monospace",
+            color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(14, 15, 17, 0.45)',
+          }}
+        >
+          {slide + 1} / {totalSlides}
+        </div>
       </footer>
     </div>
   );

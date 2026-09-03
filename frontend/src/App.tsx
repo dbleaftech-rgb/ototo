@@ -103,40 +103,6 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Centered Floating Search Pill */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 100,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <button
-          onClick={() => setSearchOpen(true)}
-          style={{
-            background: '#0E0F11',
-            color: '#D7FF3E',
-            border: '1.5px solid rgba(215, 255, 62, 0.5)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
-            borderRadius: '24px',
-            padding: '10px 20px',
-            fontFamily: 'Heebo, sans-serif',
-            fontWeight: 800,
-            fontSize: '13.5px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <span>🔍</span>
-          <span>בדיקת רכב אחר במשרד התחבורה</span>
-        </button>
-      </div>
-
       {/* Search Modal */}
       {searchOpen && (
         <div
