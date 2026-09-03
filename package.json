@@ -1,0 +1,27 @@
+{
+  "name": "ototo-smart-report",
+  "version": "2.0.0",
+  "description": "Ototo Smart Report - The intelligent used-car buyer's deal manager",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "functions",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "emulators": "firebase emulators:start"
+  },
+  "keywords": [
+    "ototo",
+    "deal-manager",
+    "car-report",
+    "firebase",
+    "typescript"
+  ],
+  "author": "Ototo",
+  "license": "UNLICENSED"
+}

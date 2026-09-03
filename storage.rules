@@ -1,0 +1,24 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Car images are public
+    match /car-images/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Machon inspection uploads: write allowed from client with size < 10MB
+    match /machon-uploads/{dealId}/{filename} {
+      allow read: if true;
+      allow write: if request.resource.size < 10 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
+    }
+
+    // Signed MoU documents: read-only
+    match /mou-signed/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

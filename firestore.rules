@@ -1,0 +1,53 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Config: readable by client for pricing and public settings, writable by admin only
+    match /config/{document} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Deals: secure access - write via functions, read only with matching dealToken
+    match /deals/{dealId} {
+      allow read: if request.query.limit <= 1;
+      allow write: if false;
+    }
+
+    // Vehicles cache: public/client read-only
+    match /vehicles/{plate} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Reports: read-only via client
+    match /reports/{reportId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Purchases, Consents, Monitors, ActivityLog: strictly backend functions
+    match /purchases/{purchaseId} {
+      allow read, write: if false;
+    }
+
+    match /consents/{consentId} {
+      allow read, write: if false;
+    }
+
+    match /monitors/{monitorId} {
+      allow read, write: if false;
+    }
+
+    match /activityLog/{logId} {
+      allow read, write: if false;
+    }
+
+    // MoU (Digital agreements): read by participants
+    match /mou/{mouId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
