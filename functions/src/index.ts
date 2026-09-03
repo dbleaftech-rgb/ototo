@@ -23,7 +23,8 @@ export const api = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const path = req.path;
+  const rawPath = req.path;
+  const path = rawPath.replace(/^\/api/, '') || '/';
 
   try {
     // 1. GET /api/deal?token=<token>
@@ -149,7 +150,8 @@ export const api = functions.https.onRequest(async (req, res) => {
  * Webhooks entry point (Grow payments, Twilio WhatsApp)
  */
 export const webhook = functions.https.onRequest(async (req, res) => {
-  const path = req.path;
+  const rawPath = req.path;
+  const path = rawPath.replace(/^\/webhook/, '') || '/';
 
   // 1. Grow (Meshulam) Payment Confirmation Webhook
   if (path === '/payment-confirmed' || path === '/grow') {
