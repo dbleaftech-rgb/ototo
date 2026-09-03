@@ -1,0 +1,19 @@
+{
+  "name": "@ototo/frontend",
+  "version": "1.0.0",
+  "description": "Modern web application for Ototo Smart Report and Deal Hub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ototo/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vite": "^5.2.0"
+  }
+}

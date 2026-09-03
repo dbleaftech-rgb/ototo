@@ -1,0 +1,202 @@
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600&family=Rubik:wght@600;700;800;900&display=swap');
+
+:root {
+  --bg: #FFFFFF;
+  --surface: #F6F7F9;
+  --surface-card: #FFFFFF;
+  --ink: #0E0F11;
+  --muted: rgba(14, 15, 17, 0.62);
+  --border: #ECEEF2;
+  --action: #0A84FF;
+  --brand: #FF4576;
+  --ok: #30C453;
+  --warn: #C24300;
+  --risk: #D91E18;
+  --lime: #D7FF3E;
+  
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Heebo', sans-serif;
+  background-color: var(--surface);
+  color: var(--ink);
+  direction: rtl;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+#app {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  background-color: var(--bg);
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, .font-heading {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Israeli License Plate Component */
+.license-plate {
+  display: inline-flex;
+  align-items: center;
+  background: #FFD500;
+  border: 2.5px solid #000;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 900;
+  font-size: 19px;
+  color: #000;
+  letter-spacing: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  user-select: none;
+}
+
+.license-plate .il-strip {
+  background: #0038B8;
+  color: #FFF;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+/* Header */
+.app-header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-logo {
+  font-family: 'Rubik', sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--brand);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Primary Action Buttons */
+.btn-action {
+  background: var(--action);
+  color: #FFF;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 0 #0066CC;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+  text-decoration: none;
+}
+
+.btn-action:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #0066CC;
+}
+
+/* Cards */
+.card {
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Score Gauge Ring */
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 900;
+  font-size: 28px;
+  border: 4px solid var(--ok);
+  color: var(--ink);
+}
+
+.score-badge.verdict-green { border-color: var(--ok); color: var(--ok); }
+.score-badge.verdict-yellow { border-color: var(--warn); color: var(--warn); }
+.score-badge.verdict-red { border-color: var(--risk); color: var(--risk); }
+
+/* Tabs */
+.tabs-nav {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  scrollbar-width: none;
+}
+.tabs-nav::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  padding: 14px 16px;
+  font-family: 'Heebo', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab-btn.active {
+  color: var(--action);
+  border-bottom-color: var(--action);
+  font-weight: 700;
+}
