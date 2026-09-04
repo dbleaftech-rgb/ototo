@@ -144,7 +144,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
         ))}
       </div>
 
-      {/* 2. Top Header Bar (Matching Screenshot Exactly) */}
+      {/* 2. Top Header Bar (Matching Screenshot Exactly: Logo on Right, Plate in Center, Button on Left) */}
       <header
         style={{
           display: 'flex',
@@ -154,7 +154,24 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
           background: 'transparent',
         }}
       >
-        {/* Left: + רכב חדש Button */}
+        {/* Right (in RTL): Official Ototo Logo */}
+        <div style={{ color: isDark ? '#FFFFFF' : '#0E0F11' }}>
+          <Logo height={16} />
+        </div>
+
+        {/* Center: Monospace License Plate Text */}
+        <div
+          dir="ltr"
+          style={{
+            font: "700 14.5px/1 'IBM Plex Mono', monospace",
+            color: isDark ? '#FFFFFF' : '#0E0F11',
+            letterSpacing: '0.5px',
+          }}
+        >
+          {formatPlate(deal?.plate || '10976303')}
+        </div>
+
+        {/* Left (in RTL): + רכב חדש Button */}
         <button
           onClick={onSearchClick}
           style={{
@@ -186,23 +203,6 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
           </span>
           <span>רכב חדש</span>
         </button>
-
-        {/* Center: Monospace License Plate Text */}
-        <div
-          dir="ltr"
-          style={{
-            font: "700 14.5px/1 'IBM Plex Mono', monospace",
-            color: isDark ? '#FFFFFF' : '#0E0F11',
-            letterSpacing: '0.5px',
-          }}
-        >
-          {formatPlate(deal?.plate || '10976303')}
-        </div>
-
-        {/* Right: Official Ototo Logo */}
-        <div style={{ color: isDark ? '#FFFFFF' : '#0E0F11' }}>
-          <Logo height={16} />
-        </div>
       </header>
 
       {/* 3. Main Slide Body */}
@@ -350,7 +350,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                 borderTop: '1px solid rgba(14, 15, 17, 0.09)',
                 borderBottom: '1px solid rgba(14, 15, 17, 0.09)',
                 marginTop: '10px',
-                background: 'rgba(255, 255, 255, 0.25)',
+                background: 'transparent',
               }}
             >
               {specsList.map((item, idx) => (
@@ -594,7 +594,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
         )}
       </main>
 
-      {/* 4. Bottom Chrome Row (Matching Screenshot: "נגיעה להמשך" on left, "1 / 4" on right) */}
+      {/* 4. Bottom Chrome Row (Matching Screenshot: "1 / 4" on right, "נגיעה להמשך" on left) */}
       <footer
         style={{
           display: 'flex',
@@ -604,6 +604,18 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
           background: 'transparent',
         }}
       >
+        {/* Right (in RTL): Slide Counter */}
+        <div
+          dir="ltr"
+          style={{
+            font: "600 11px/1 'IBM Plex Mono', monospace",
+            color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(14, 15, 17, 0.45)',
+          }}
+        >
+          {slide + 1} / {totalSlides}
+        </div>
+
+        {/* Left (in RTL): Tap to Continue */}
         <div
           onClick={nextSlide}
           style={{
@@ -613,16 +625,6 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
           }}
         >
           {slide < totalSlides - 1 ? 'נגיעה להמשך' : ''}
-        </div>
-
-        <div
-          dir="ltr"
-          style={{
-            font: "600 11px/1 'IBM Plex Mono', monospace",
-            color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(14, 15, 17, 0.45)',
-          }}
-        >
-          {slide + 1} / {totalSlides}
         </div>
       </footer>
     </div>
