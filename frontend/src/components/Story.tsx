@@ -316,30 +316,49 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                 position: 'relative',
                 width: '88%',
                 maxWidth: '330px',
-                margin: '10px auto 0',
+                margin: '12px auto 0',
               }}
             >
+              {/* Soft Contact Ground Shadow (Matching Ototo #csh) */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '2px',
+                  left: '6%',
+                  right: '6%',
+                  height: '14px',
+                  background:
+                    'radial-gradient(ellipse at center, rgba(14, 15, 17, 0.32) 0%, rgba(14, 15, 17, 0.1) 50%, transparent 75%)',
+                  borderRadius: '50%',
+                  pointerEvents: 'none',
+                }}
+              />
+
               <img
-                src="/assets/car-front.jpg"
+                src="/assets/car-sportage.png"
                 alt={meta.vehicleTitle}
                 style={{
                   width: '100%',
                   height: 'auto',
                   display: 'block',
-                  mixBlendMode: 'multiply',
+                  position: 'relative',
+                  zIndex: 1,
                 }}
               />
+
               {/* Israeli License Plate Mounted Right on Bumper */}
               <div
                 style={{
                   position: 'absolute',
-                  bottom: '15.5%',
+                  bottom: '24%',
                   left: '50%',
-                  transform: 'translateX(-50%) scale(0.85)',
+                  transform: 'translateX(-50%) scale(0.88)',
+                  zIndex: 2,
                   pointerEvents: 'none',
+                  filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.25))',
                 }}
               >
-                <Plate plate={deal?.plate || '10976303'} />
+                <Plate plate={deal?.plate || '70086701'} />
               </div>
             </div>
 
