@@ -306,7 +306,13 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                 <strong style={{ fontWeight: 800, color: '#0E0F11' }}>
                   {score.range.floor}–{score.range.ceil}
                 </strong>{' '}
-                · על סמך 50% מהנתונים
+                · על סמך{' '}
+                {report?.score?.coverage ||
+                  Object.values(score.pillars || {})
+                    .filter((p: any) => p?.status === 'measured')
+                    .reduce((acc: number, p: any) => acc + (p.weight || 0), 0) ||
+                  50}
+                % מהנתונים
               </div>
             </div>
 
@@ -350,7 +356,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
               <div
                 style={{
                   position: 'absolute',
-                  bottom: '24%',
+                  bottom: '27.5%',
                   left: '50%',
                   transform: 'translateX(-50%) scale(0.88)',
                   zIndex: 2,
