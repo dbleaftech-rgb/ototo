@@ -60,6 +60,8 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
   const kmVal = report?.lastTestKm || deal?.declaredKm || 35908;
   const fuelVal = meta.fuelHe || 'בנזין';
   const colorVal = meta.color || report?.vehicleMeta?.color || 'שחור';
+  const isBlack = (colorVal || '').includes('שחור') || (colorVal || '').toLowerCase().includes('black');
+  const carGraphicSrc = isBlack ? '/assets/car-sportage-black.png' : '/assets/car-sportage.png';
 
   const specsList = [
     { label: 'יד', value: `יד ${handsCount}` },
@@ -341,7 +343,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
               />
 
               <img
-                src="/assets/car-sportage.png"
+                src={carGraphicSrc}
                 alt={meta.vehicleTitle}
                 style={{
                   width: '100%',
