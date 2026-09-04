@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Logo } from './Logo.js';
 import { Plate, formatPlate } from './Plate.js';
 import { Gauge } from './Gauge.js';
+import { resolveCarAsset } from '../utils/carAssetResolver.js';
 
 interface StoryProps {
   deal: any;
@@ -14,14 +15,17 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
   const [slide, setSlide] = useState(0);
   const totalSlides = 4;
 
+  const currentPlate = deal?.plate || report?.plate || '70086701';
+
   const meta = report?.vehicleMeta || {
-    makeEn: 'SUZUKI',
-    modelLine: 'JIMNY',
-    subModel: 'GLX',
+    makeEn: 'KIA',
+    modelLine: 'SPORTAGE',
+    subModel: 'URBAN',
     fuelEn: 'PETROL',
     fuelHe: 'בנזין',
-    year: 2022,
-    vehicleTitle: 'SUZUKI JIMNY GLX 2022',
+    year: 2017,
+    vehicleTitle: 'KIA SPORTAGE URBAN 2017',
+    color: 'שחור',
   };
 
   const score = report?.score || {
@@ -60,8 +64,11 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
   const kmVal = report?.lastTestKm || deal?.declaredKm || 35908;
   const fuelVal = meta.fuelHe || 'בנזין';
   const colorVal = meta.color || report?.vehicleMeta?.color || 'שחור';
-  const isBlack = (colorVal || '').includes('שחור') || (colorVal || '').toLowerCase().includes('black');
-  const carGraphicSrc = isBlack ? '/assets/car-sportage-black.png' : '/assets/car-sportage.png';
+  const carAsset = resolveCarAsset({
+    make: meta.makeEn || deal?.make,
+    model: meta.modelLine || meta.vehicleTitle || deal?.model,
+    color: colorVal,
+  });
 
   const specsList = [
     { label: 'יד', value: `יד ${handsCount}` },
@@ -170,7 +177,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
             letterSpacing: '0.5px',
           }}
         >
-          {formatPlate(deal?.plate || '10976303')}
+          {formatPlate(currentPlate)}
         </div>
 
         {/* Left (in RTL): + רכב חדש Button */}
@@ -343,7 +350,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
               />
 
               <img
-                src={carGraphicSrc}
+                src={carAsset.src}
                 alt={meta.vehicleTitle}
                 style={{
                   width: '100%',
@@ -358,15 +365,15 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
               <div
                 style={{
                   position: 'absolute',
-                  bottom: '27.5%',
+                  bottom: carAsset.plateBottomPct,
                   left: '50%',
-                  transform: 'translateX(-50%) scale(0.88)',
+                  transform: `translateX(-50%) scale(${carAsset.plateScale})`,
                   zIndex: 2,
                   pointerEvents: 'none',
                   filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.25))',
                 }}
               >
-                <Plate plate={deal?.plate || '70086701'} />
+                <Plate plate={currentPlate} />
               </div>
             </div>
 
