@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { extractDataFromScreenshot } from '../services/screenshotOcrService';
 
 interface NewVehicleModalProps {
   isOpen: boolean;
@@ -11,71 +12,90 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const [tab, setTab] = useState<'screenshot' | 'plate'>('screenshot');
+  const [tab, setTab] = useState<'screenshot' | 'manual'>('screenshot');
   const [plate, setPlate] = useState('');
   const [adPrice, setAdPrice] = useState('');
   const [screenshotData, setScreenshotData] = useState<string | null>(null);
-  const [screenshotName, setScreenshotName] = useState<string>('');
-  const [dragOver, setDragOver] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [extractedSuccess, setExtractedSuccess] = useState(false);
+  const [isEditingExtracted, setIsEditingExtracted] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
 
-  // Listen for clipboard paste (e.g. Cmd+V / Ctrl+V)
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handlePaste = (e: ClipboardEvent) => {
-      if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
-        const file = e.clipboardData.files[0];
-        if (file.type.startsWith('image/')) {
-          e.preventDefault();
-          handleFileSelect(file);
-        }
-      }
-    };
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [isOpen]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleFileSelect = (file: File) => {
+  const resetScreenshotState = () => {
+    setScreenshotData(null);
+    setIsScanning(false);
+    setExtractedSuccess(false);
+    setIsEditingExtracted(false);
+    setExtractionError(null);
+    setPlate('');
+    setAdPrice('');
+  };
+
+  const handleImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('נא להעלות קובץ תמונה (PNG, JPG, WebP)');
+      alert('נא לבחור קובץ תמונה (PNG, JPG, WebP)');
       return;
     }
 
-    setScreenshotName(file.name || 'צילום מסך מהלוח');
+    // Reset previous extraction
+    setExtractedSuccess(false);
+    setExtractionError(null);
     setIsScanning(true);
 
+    // Read image preview
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const dataUrl = e.target?.result as string;
       setScreenshotData(dataUrl);
 
-      // Smart heuristic extraction from filename if available
-      const digitsMatch = file.name.match(/\b\d{7,8}\b/);
-      if (digitsMatch && !plate) {
-        setPlate(digitsMatch[0]);
-      }
+      try {
+        // Run OCR extraction
+        const result = await extractDataFromScreenshot(dataUrl);
 
-      const priceMatch = file.name.match(/\b(\d{2,3})[0kK]\b/);
-      if (priceMatch && !adPrice) {
-        // e.g. 79k -> 79000
-      }
+        let detectedPlate = result.plate;
+        let detectedPrice = result.adPrice;
 
-      setTimeout(() => {
+        // Fallback: check filename if OCR was inconclusive
+        if (!detectedPlate) {
+          const fnMatch = file.name.match(/\b\d{7,8}\b/);
+          if (fnMatch) detectedPlate = fnMatch[0];
+        }
+
+        if (detectedPlate) {
+          setPlate(detectedPlate);
+          if (detectedPrice) {
+            setAdPrice(detectedPrice.toLocaleString());
+          }
+          setExtractedSuccess(true);
+        } else {
+          setExtractionError('לא הצלחנו לזהות את לוחית הרישוי בצילום. אנא הזינו אותה ידנית.');
+        }
+      } catch (err) {
+        console.error('Extraction error:', err);
+        setExtractionError('חלה שגיאה בסריקה. אנא הזינו את מספר הרישוי ידנית.');
+      } finally {
         setIsScanning(false);
-      }, 700);
+      }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelect(e.dataTransfer.files[0]);
-    }
+  const handlePresetSelect = async (samplePlate: string, samplePrice: number, label: string) => {
+    resetScreenshotState();
+    setIsScanning(true);
+    setScreenshotData('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180" viewBox="0 0 300 180"><rect width="300" height="180" fill="%230e0f11"/><text x="150" y="80" fill="%23d7ff3e" font-family="sans-serif" font-weight="bold" font-size="18" text-anchor="middle">צילום מסך יד2: ' + encodeURIComponent(label) + '</text><text x="150" y="115" fill="%23ffffff" font-family="monospace" font-size="16" text-anchor="middle">' + samplePlate + ' · ₪' + samplePrice.toLocaleString() + '</text></svg>');
+
+    // Simulate realistic OCR extraction time
+    setTimeout(() => {
+      setPlate(samplePlate);
+      setAdPrice(samplePrice.toLocaleString());
+      setIsScanning(false);
+      setExtractedSuccess(true);
+    }, 650);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -94,13 +114,21 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
     });
   };
 
+  const formatPlate = (numStr: string) => {
+    const s = numStr.replace(/\D/g, '');
+    if (s.length === 8) return `${s.slice(0, 3)}-${s.slice(3, 5)}-${s.slice(5)}`;
+    if (s.length === 7) return `${s.slice(0, 2)}-${s.slice(2, 5)}-${s.slice(5)}`;
+    return s;
+  };
+
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
         background: 'rgba(14, 15, 17, 0.78)',
-        backdropFilter: 'blur(5px)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
         zIndex: 200,
         display: 'flex',
         alignItems: 'center',
@@ -114,12 +142,14 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
         className="hcard"
         style={{
           width: '100%',
-          maxWidth: '400px',
+          maxWidth: '420px',
           padding: '24px 20px',
-          borderRadius: '8px',
-          boxShadow: '0 16px 40px rgba(0,0,0,0.3)',
+          borderRadius: '12px',
+          boxShadow: '0 20px 48px rgba(0,0,0,0.35)',
           background: '#FFFFFF',
           position: 'relative',
+          maxHeight: '90vh',
+          overflowY: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -130,29 +160,34 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
             position: 'absolute',
             top: '16px',
             left: '16px',
-            background: 'transparent',
+            background: 'rgba(14, 15, 17, 0.05)',
             border: 'none',
-            fontSize: '20px',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px',
             lineHeight: 1,
             cursor: 'pointer',
-            color: 'rgba(14, 15, 17, 0.4)',
-            padding: '4px',
+            color: 'rgba(14, 15, 17, 0.6)',
           }}
         >
           ✕
         </button>
 
-        <div className="hkick" style={{ margin: 0 }}>בדיקה חכמה מול המאגרים</div>
+        <div className="hkick" style={{ margin: 0 }}>בדיקה חכמה מול משרד התחבורה</div>
         <h3 style={{ font: '900 22px/1.2 Heebo, sans-serif', margin: '4px 0 16px' }}>
           בדיקת רכב חדש
         </h3>
 
-        {/* Segmented Tab Switcher */}
+        {/* Tab Switcher */}
         <div
           style={{
             display: 'flex',
             background: 'rgba(14, 15, 17, 0.06)',
-            borderRadius: '6px',
+            borderRadius: '8px',
             padding: '3px',
             marginBottom: '18px',
           }}
@@ -162,204 +197,354 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
             onClick={() => setTab('screenshot')}
             style={{
               flex: 1,
-              padding: '8px 12px',
+              padding: '9px 12px',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '6px',
               fontSize: '13px',
               fontWeight: 700,
               fontFamily: 'Heebo, sans-serif',
               cursor: 'pointer',
               background: tab === 'screenshot' ? '#FFFFFF' : 'transparent',
-              color: tab === 'screenshot' ? '#0E0F11' : 'rgba(14, 15, 17, 0.55)',
+              color: tab === 'screenshot' ? '#0E0F11' : 'rgba(14, 15, 17, 0.6)',
               boxShadow: tab === 'screenshot' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.15s ease',
             }}
           >
-            📸 צילום מסך מיד2
+            📸 חילוץ מצילום מסך
           </button>
           <button
             type="button"
-            onClick={() => setTab('plate')}
+            onClick={() => setTab('manual')}
             style={{
               flex: 1,
-              padding: '8px 12px',
+              padding: '9px 12px',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '6px',
               fontSize: '13px',
               fontWeight: 700,
               fontFamily: 'Heebo, sans-serif',
               cursor: 'pointer',
-              background: tab === 'plate' ? '#FFFFFF' : 'transparent',
-              color: tab === 'plate' ? '#0E0F11' : 'rgba(14, 15, 17, 0.55)',
-              boxShadow: tab === 'plate' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+              background: tab === 'manual' ? '#FFFFFF' : 'transparent',
+              color: tab === 'manual' ? '#0E0F11' : 'rgba(14, 15, 17, 0.6)',
+              boxShadow: tab === 'manual' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.15s ease',
             }}
           >
-            🔢 מספר רישוי
+            🔢 הזנה ידנית
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* TAB 1: Screenshot Upload */}
+          {/* TAB 1: SCREENSHOT UPLOAD & AUTO-EXTRACTION */}
           {tab === 'screenshot' && (
-            <div style={{ marginBottom: '16px' }}>
-              {!screenshotData ? (
-                <>
-                  <div
-                    onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: `2px dashed ${dragOver ? '#0E0F11' : 'rgba(14, 15, 17, 0.22)'}`,
-                    borderRadius: '6px',
-                    padding: '22px 16px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: dragOver ? 'rgba(14, 15, 17, 0.03)' : '#FAFAF8',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div style={{ fontSize: '30px', marginBottom: '6px' }}>📸</div>
-                  <div style={{ font: '700 14px/1.3 Heebo, sans-serif', color: '#0E0F11' }}>
-                    גררו לכאן צילום מסך או לחצו להעלאה
-                  </div>
-                  <div
-                    style={{
-                      font: '400 12px/1.4 Heebo, sans-serif',
-                      color: 'rgba(14, 15, 17, 0.55)',
-                      marginTop: '4px',
-                    }}
-                  >
-                    תומך בצילומי מסך מיד2, פייסבוק, או תמונת רכב
-                  </div>
-                  <div
-                    style={{
-                      marginTop: '8px',
-                      display: 'inline-block',
-                      background: 'rgba(14, 15, 17, 0.06)',
-                      borderRadius: '4px',
-                      padding: '3px 8px',
-                      font: '600 11px Heebo, sans-serif',
-                      color: 'rgba(14, 15, 17, 0.65)',
-                    }}
-                  >
-                    📋 אפשר גם להדביק ישירות (Cmd+V / Ctrl+V)
-                  </div>
-                </div>
-
-                {/* Quick Examples */}
-                <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', color: 'rgba(14, 15, 17, 0.5)', fontWeight: 600 }}>דוגמאות מהירות:</span>
+            <div>
+              {/* Initial Upload Button / Card (Mobile friendly tap target) */}
+              {!screenshotData && (
+                <div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setPlate('10976303');
-                      setAdPrice('135,000');
-                    }}
-                    className="chip"
-                    style={{ fontSize: '11px', padding: '3px 8px', cursor: 'pointer' }}
-                  >
-                    🚙 ג'ימני 2021
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPlate('70086701');
-                      setAdPrice('79,000');
-                    }}
-                    className="chip"
-                    style={{ fontSize: '11px', padding: '3px 8px', cursor: 'pointer' }}
-                  >
-                    🚘 ספורטאז' 2018
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPlate('48912345');
-                      setAdPrice('88,000');
-                    }}
-                    className="chip"
-                    style={{ fontSize: '11px', padding: '3px 8px', cursor: 'pointer' }}
-                  >
-                    🚗 טוסון 2019
-                  </button>
-                  </div>
-                </>
-              ) : (
-                <div
-                  style={{
-                    border: '1px solid rgba(14, 15, 17, 0.12)',
-                    borderRadius: '6px',
-                    padding: '10px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    background: isScanning ? '#F4FBF4' : '#FAFAF8',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <img
-                    src={screenshotData}
-                    alt="צילום מסך"
+                    onClick={() => fileInputRef.current?.click()}
                     style={{
-                      width: '56px',
-                      height: '56px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      border: '1px solid rgba(0,0,0,0.1)',
-                      filter: isScanning ? 'brightness(0.9)' : 'none',
+                      width: '100%',
+                      padding: '24px 16px',
+                      background: '#F6F6F4',
+                      border: '1.5px solid rgba(14, 15, 17, 0.12)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s ease, transform 0.1s ease',
+                      textAlign: 'center',
                     }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  >
                     <div
                       style={{
-                        font: '700 13px Heebo, sans-serif',
-                        color: isScanning ? '#1B5E20' : '#2E7D32',
+                        width: '52px',
+                        height: '52px',
+                        borderRadius: '50%',
+                        background: '#0E0F11',
+                        color: '#D7FF3E',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px',
+                        justifyContent: 'center',
+                        fontSize: '24px',
+                        marginBottom: '10px',
                       }}
                     >
-                      <span>{isScanning ? '⚡' : '✓'}</span>
-                      {isScanning ? 'מזהה פרטי מודעה...' : 'צילום מסך נטען בהצלחה'}
+                      📸
+                    </div>
+                    <div style={{ font: '800 15px/1.3 Heebo, sans-serif', color: '#0E0F11' }}>
+                      בחירת צילום מסך מגלריית התמונות
                     </div>
                     <div
                       style={{
-                        font: '400 11px Heebo, sans-serif',
-                        color: 'rgba(14, 15, 17, 0.6)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        font: '400 12px/1.4 Heebo, sans-serif',
+                        color: 'rgba(14, 15, 17, 0.58)',
+                        marginTop: '4px',
+                        maxWidth: '280px',
                       }}
                     >
-                      {screenshotName}
+                      אוטוטו יחלץ אוטומטית את מספר הרישוי והמחיר המבוקש ממודעת יד2 או פייסבוק
+                    </div>
+                  </button>
+
+                  {/* Mobile Quick Samples */}
+                  <div style={{ marginTop: '16px', borderTop: '1px solid rgba(14,15,17,0.08)', paddingTop: '12px' }}>
+                    <div style={{ font: '600 11px Heebo, sans-serif', color: 'rgba(14,15,17,0.5)', marginBottom: '8px' }}>
+                      או נסו חילוץ מודעה לדוגמה:
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handlePresetSelect('10976303', 135000, "סוזוקי ג'ימני")}
+                        className="chip"
+                        style={{ fontSize: '11px', padding: '5px 10px', cursor: 'pointer' }}
+                      >
+                        🚙 ג'ימני 2021
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePresetSelect('70086701', 79000, "קיה ספורטאז'")}
+                        className="chip"
+                        style={{ fontSize: '11px', padding: '5px 10px', cursor: 'pointer' }}
+                      >
+                        🚘 ספורטאז' 2018
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePresetSelect('48912345', 88000, "יונדאי טוסון")}
+                        className="chip"
+                        style={{ fontSize: '11px', padding: '5px 10px', cursor: 'pointer' }}
+                      >
+                        🚗 טוסון 2019
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScreenshotData(null);
-                      setScreenshotName('');
-                    }}
+                </div>
+              )}
+
+              {/* Scanning in progress state */}
+              {screenshotData && isScanning && (
+                <div
+                  style={{
+                    padding: '24px 16px',
+                    background: '#FAFAF8',
+                    borderRadius: '10px',
+                    border: '1.5px solid rgba(14, 15, 17, 0.1)',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 14px' }}>
+                    <img
+                      src={screenshotData}
+                      alt="סריקה"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        border: '2px solid #0E0F11',
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '8px',
+                        background: 'linear-gradient(to bottom, transparent 40%, rgba(215,255,62,0.4) 50%, transparent 60%)',
+                        animation: 'pulse 1.2s infinite',
+                      }}
+                    />
+                  </div>
+                  <div style={{ font: '800 15px Heebo, sans-serif', color: '#0E0F11' }}>
+                    סורק ומחלץ פרטים מהמודעה... ⚡
+                  </div>
+                  <div style={{ font: '400 12px Heebo, sans-serif', color: 'rgba(14,15,17,0.6)', marginTop: '4px' }}>
+                    זיהוי מספר רישוי ומחיר מבוקש
+                  </div>
+                </div>
+              )}
+
+              {/* Extraction Complete Card */}
+              {screenshotData && !isScanning && (
+                <div>
+                  <div
                     style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'rgba(14, 15, 17, 0.5)',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                      padding: '4px',
+                      background: extractedSuccess ? '#F3F9F1' : '#FFF9F4',
+                      border: `1.5px solid ${extractedSuccess ? '#3F7A2E' : '#C24300'}`,
+                      borderRadius: '10px',
+                      padding: '14px',
+                      marginBottom: '16px',
                     }}
                   >
-                    החלפה
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span
+                        style={{
+                          font: '700 12px Heebo, sans-serif',
+                          color: extractedSuccess ? '#2E7D32' : '#C24300',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        {extractedSuccess ? '✓ פרטי הרכב זוהו בהצלחה מתוך המודעה' : '⚠️ נדרשת השלמת פרטים'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={resetScreenshotState}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'rgba(14, 15, 17, 0.5)',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        החלפת צילום
+                      </button>
+                    </div>
+
+                    {/* Extracted Details Display */}
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      {/* Thumbnail */}
+                      <img
+                        src={screenshotData}
+                        alt="צילום מסך"
+                        style={{
+                          width: '54px',
+                          height: '54px',
+                          objectFit: 'cover',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(0,0,0,0.1)',
+                          flexShrink: 0,
+                        }}
+                      />
+
+                      {/* Info values */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '11px', color: 'rgba(14,15,17,0.6)', fontWeight: 600 }}>רישוי:</span>
+                          <span
+                            style={{
+                              fontFamily: 'var(--mono-font)',
+                              fontWeight: 900,
+                              fontSize: '15px',
+                              background: '#FEE500',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid #0E0F11',
+                              color: '#0E0F11',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            {plate ? formatPlate(plate) : 'לא זוהה'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '11px', color: 'rgba(14,15,17,0.6)', fontWeight: 600 }}>מחיר מודעה:</span>
+                          <span style={{ fontWeight: 800, fontSize: '14px', color: '#0E0F11' }}>
+                            {adPrice ? `₪${adPrice}` : 'ללא מחיר במודעה'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Edit button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingExtracted(!isEditingExtracted)}
+                        style={{
+                          background: 'rgba(14,15,17,0.06)',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 8px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          color: '#0E0F11',
+                        }}
+                      >
+                        {isEditingExtracted ? 'סגירה' : '✏️ עריכה'}
+                      </button>
+                    </div>
+
+                    {/* Expandable manual edit fields if user wants to override */}
+                    {isEditingExtracted && (
+                      <div style={{ marginTop: '12px', borderTop: '1px solid rgba(14,15,17,0.08)', paddingTop: '10px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>
+                          מספר רישוי:
+                        </label>
+                        <input
+                          type="text"
+                          value={plate}
+                          onChange={(e) => setPlate(e.target.value.replace(/\D/g, ''))}
+                          maxLength={8}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '14px',
+                            fontFamily: 'var(--mono-font)',
+                            fontWeight: 700,
+                            borderRadius: '4px',
+                            border: '1px solid #0E0F11',
+                            marginBottom: '8px',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>
+                          מחיר מבוקש:
+                        </label>
+                        <input
+                          type="text"
+                          value={adPrice}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            setAdPrice(val ? Number(val).toLocaleString() : '');
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            borderRadius: '4px',
+                            border: '1px solid rgba(14,15,17,0.2)',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {extractionError && (
+                    <div style={{ fontSize: '12px', color: '#C24300', marginBottom: '12px', fontWeight: 600 }}>
+                      {extractionError}
+                    </div>
+                  )}
+
+                  {/* Primary Submit Button */}
+                  <button
+                    type="submit"
+                    className="btn-action-dark"
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      fontSize: '15px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    הפקת דוח חכם ⚡
                   </button>
                 </div>
               )}
 
+              {/* Hidden native mobile file input */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -367,56 +552,64 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
-                    handleFileSelect(e.target.files[0]);
+                    handleImageFile(e.target.files[0]);
                   }
                 }}
               />
+            </div>
+          )}
 
-              {/* Verified fields section */}
-              <div style={{ marginTop: '14px' }}>
+          {/* TAB 2: DIRECT MANUAL PLATE ENTRY */}
+          {tab === 'manual' && (
+            <div>
+              <div style={{ marginBottom: '14px' }}>
                 <label
                   style={{
                     display: 'block',
                     font: '700 12px Heebo, sans-serif',
                     color: 'rgba(14, 15, 17, 0.75)',
-                    marginBottom: '4px',
+                    marginBottom: '6px',
                   }}
                 >
                   מספר רישוי הרכב (7 או 8 ספרות):
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  autoFocus
                   value={plate}
                   onChange={(e) => setPlate(e.target.value.replace(/\D/g, ''))}
-                  placeholder="למשל: 70086701 או 10976303"
+                  placeholder="למשל: 70086701"
                   maxLength={8}
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
-                    fontSize: '18px',
+                    padding: '12px',
+                    fontSize: '22px',
                     textAlign: 'center',
                     fontFamily: 'var(--mono-font)',
                     fontWeight: 700,
-                    letterSpacing: '1.5px',
-                    border: '1.5px solid #0E0F11',
-                    borderRadius: '4px',
+                    letterSpacing: '2px',
+                    border: '2px solid #0E0F11',
+                    borderRadius: '6px',
                     boxSizing: 'border-box',
-                    marginBottom: '10px',
                   }}
                 />
+              </div>
 
+              <div style={{ marginBottom: '18px' }}>
                 <label
                   style={{
                     display: 'block',
                     font: '700 12px Heebo, sans-serif',
                     color: 'rgba(14, 15, 17, 0.75)',
-                    marginBottom: '4px',
+                    marginBottom: '6px',
                   }}
                 >
                   מחיר מבוקש במודעה (אופציונלי):
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={adPrice}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
@@ -425,114 +618,46 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
                   placeholder="למשל: 79,000 ₪"
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
+                    padding: '11px',
                     fontSize: '15px',
                     textAlign: 'center',
                     fontFamily: 'Heebo, sans-serif',
                     fontWeight: 600,
                     border: '1px solid rgba(14, 15, 17, 0.2)',
-                    borderRadius: '4px',
+                    borderRadius: '6px',
                     boxSizing: 'border-box',
                   }}
                 />
               </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={onClose}
+                  style={{ flex: 1, padding: '12px', textAlign: 'center', borderRadius: '6px' }}
+                >
+                  ביטול
+                </button>
+                <button
+                  type="submit"
+                  className="btn-action-dark"
+                  style={{
+                    flex: 2,
+                    padding: '12px',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    borderRadius: '6px',
+                  }}
+                >
+                  הפקת דוח חי ⚡
+                </button>
+              </div>
             </div>
           )}
-
-          {/* TAB 2: Direct Plate Input */}
-          {tab === 'plate' && (
-            <div style={{ marginBottom: '16px' }}>
-              <label
-                style={{
-                  display: 'block',
-                  font: '700 12px Heebo, sans-serif',
-                  color: 'rgba(14, 15, 17, 0.75)',
-                  marginBottom: '4px',
-                }}
-              >
-                מספר רישוי בישראל:
-              </label>
-              <input
-                type="text"
-                autoFocus
-                value={plate}
-                onChange={(e) => setPlate(e.target.value.replace(/\D/g, ''))}
-                placeholder="למשל: 70086701"
-                maxLength={8}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  fontSize: '22px',
-                  textAlign: 'center',
-                  fontFamily: 'var(--mono-font)',
-                  fontWeight: 700,
-                  letterSpacing: '2px',
-                  border: '2px solid #0E0F11',
-                  borderRadius: '4px',
-                  boxSizing: 'border-box',
-                  marginBottom: '12px',
-                }}
-              />
-
-              <label
-                style={{
-                  display: 'block',
-                  font: '700 12px Heebo, sans-serif',
-                  color: 'rgba(14, 15, 17, 0.75)',
-                  marginBottom: '4px',
-                }}
-              >
-                מחיר מבוקש במודעה (אופציונלי):
-              </label>
-              <input
-                type="text"
-                value={adPrice}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
-                  setAdPrice(val ? Number(val).toLocaleString() : '');
-                }}
-                placeholder="למשל: 79,000 ₪"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  fontSize: '15px',
-                  textAlign: 'center',
-                  fontFamily: 'Heebo, sans-serif',
-                  fontWeight: 600,
-                  border: '1px solid rgba(14, 15, 17, 0.2)',
-                  borderRadius: '4px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-            <button
-              type="button"
-              className="chip"
-              onClick={onClose}
-              style={{ flex: 1, padding: '12px', textAlign: 'center' }}
-            >
-              ביטול
-            </button>
-            <button
-              type="submit"
-              className="btn-action-dark"
-              style={{
-                flex: 2,
-                padding: '12px',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              הפקת דוח חי ⚡
-            </button>
-          </div>
         </form>
       </div>
     </div>
