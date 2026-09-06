@@ -452,13 +452,14 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
         {/* Slide 1: Valuation Derivation */}
         {slide === 1 && (
           <div className="hcard-dark" style={{ flex: 1, margin: '12px 16px', borderRadius: '4px' }}>
-            <div className="hkick">02 · שווי מותאם-היסטוריה</div>
+            <div className="hkick">02 · שווי מותאם לפי היסטוריית הרכב</div>
+
             <div
               style={{
                 display: 'flex',
                 alignItems: 'baseline',
                 gap: '8px',
-                marginTop: '20px',
+                marginTop: '16px',
               }}
             >
               <span
@@ -491,7 +492,9 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                 marginTop: '6px',
               }}
             >
-              מבוקש במודעה: ₪{adPrice.toLocaleString()} · על סמך מודעות דומות של הדגם
+              {deal?.adPrice
+                ? `מחיר מבוקש במודעה: ₪${adPrice.toLocaleString()}`
+                : `חציון מבוקש בשוק: ₪${adPrice.toLocaleString()} · על סמך מודעות דומות של הדגם`}
             </div>
 
             {/* Derivation Steps */}
@@ -506,6 +509,22 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
               >
                 איך הגענו למספר הזה:
               </div>
+
+              {/* Base Price Row (Anchor) */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '11px 0',
+                  borderTop: '1px solid rgba(255,255,255,0.12)',
+                  fontSize: '12.5px',
+                  color: 'rgba(255,255,255,0.85)',
+                }}
+              >
+                <span>{deal?.adPrice ? 'מחיר בסיס מבוקש במודעה' : 'מחיר בסיס (חציון מבוקש בשוק)'}</span>
+                <strong>₪{adPrice.toLocaleString()}</strong>
+              </div>
+
               {priceAdjust.steps.map((st: any, i: number) => (
                 <div
                   key={i}
@@ -539,7 +558,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                   color: '#FFFFFF',
                 }}
               >
-                <span>היעד למו״מ:</span>
+                <span>מחיר ריאלי למו״מ:</span>
                 <strong style={{ color: '#D7FF3E' }}>
                   ₪{finalPrice.toLocaleString()}
                 </strong>
