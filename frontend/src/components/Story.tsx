@@ -12,7 +12,16 @@ interface StoryProps {
 }
 
 export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchClick }) => {
-  const [slide, setSlide] = useState(0);
+  const [slide, setSlide] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get('slide') || params.get('s');
+    if (p !== null) {
+      const num = parseInt(p, 10);
+      if (num >= 1 && num <= 4) return num - 1; // 1-based (e.g. ?slide=2 -> slide 1)
+      if (num >= 0 && num < 4) return num;
+    }
+    return 0;
+  });
   const totalSlides = 4;
 
   const currentPlate = deal?.plate || report?.plate || '70086701';
@@ -80,15 +89,27 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
 
   const isDark = slide === 1 || slide === 3;
 
+  const goToSlide = (idx: number) => {
+    const clamped = Math.max(0, Math.min(totalSlides - 1, idx));
+    setSlide(clamped);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('slide', String(clamped + 1));
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // ignore in tests
+    }
+  };
+
   const nextSlide = () => {
     if (slide < totalSlides - 1) {
-      setSlide((s) => s + 1);
+      goToSlide(slide + 1);
     }
   };
 
   const prevSlide = () => {
     if (slide > 0) {
-      setSlide((s) => s - 1);
+      goToSlide(slide - 1);
     }
   };
 
@@ -128,10 +149,16 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
         {Array.from({ length: totalSlides }).map((_, i) => (
           <div
             key={i}
+            onClick={(e) => {
+              e.stopPropagation();
+              goToSlide(i);
+            }}
             style={{
               flex: 1,
-              height: '2.5px',
+              height: '5px',
+              padding: '4px 0',
               borderRadius: '2px',
+              cursor: 'pointer',
               background:
                 i === slide
                   ? '#0E0F11'
@@ -492,8 +519,12 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                   }}
                 >
                   <span>{st.label}</span>
-                  <strong>
-                    {st.delta < 0 ? `−₪${Math.abs(st.delta).toLocaleString()}` : `₪${st.after.toLocaleString()}`}
+                  <strong style={{ color: st.delta > 0 ? '#D7FF3E' : 'inherit' }}>
+                    {st.delta < 0
+                      ? `−₪${Math.abs(st.delta).toLocaleString()}`
+                      : st.delta > 0
+                      ? `+₪${st.delta.toLocaleString()}`
+                      : `₪0`}
                   </strong>
                 </div>
               ))}
