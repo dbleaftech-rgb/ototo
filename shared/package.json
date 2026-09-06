@@ -1,6 +1,7 @@
 {
   "name": "@ototo/shared",
   "version": "1.0.0",
+  "type": "module",
   "description": "Shared domain models, types, scoring and valuation algorithms for Ototo",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

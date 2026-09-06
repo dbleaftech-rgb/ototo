@@ -3,6 +3,8 @@ import { Story } from './components/Story.js';
 import { DealHub } from './components/DealHub.js';
 import { SellerApproval } from './components/SellerApproval.js';
 import { LoadingScreen } from './components/LoadingScreen.js';
+import { NewVehicleModal } from './components/NewVehicleModal.js';
+import { fetchOrCreateDeal } from './services/vehicleSearchService.js';
 
 export const App: React.FC = () => {
   const [deal, setDeal] = useState<any>(null);
@@ -34,34 +36,29 @@ export const App: React.FC = () => {
       });
   };
 
-  const handleSearchVehicle = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = searchPlate.replace(/\D/g, '');
-    if (clean.length < 7 || clean.length > 8) {
-      alert('מספר רישוי בישראל כולל 7 או 8 ספרות');
-      return;
-    }
-
+  const handleVehicleSubmit = async (params: { plate: string; adPrice?: number; screenshotUrl?: string }) => {
+    setSearchPlate(params.plate);
     setSearching(true);
+    setSearchOpen(false);
     try {
-      const res = await fetch('/api/deal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plate: clean,
-          buyerPhone: '0501234567',
-        }),
+      const data = await fetchOrCreateDeal({
+        plate: params.plate,
+        adPrice: params.adPrice,
+        screenshotUrl: params.screenshotUrl,
+        buyerPhone: '0501234567',
       });
-
-      if (!res.ok) {
-        throw new Error('שגיאה ביצירת הדוח');
-      }
-
-      const data = await res.json();
-      if (data.dealToken) {
-        window.history.pushState({}, '', `?token=${data.dealToken}`);
-        loadDealByToken(data.dealToken);
-        setSearchOpen(false);
+      if (data?.deal && data?.report) {
+        setDeal(data.deal);
+        setReport(data.report);
+        setMode('story');
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('plate', params.plate);
+          if (params.adPrice) url.searchParams.set('price', String(params.adPrice));
+          window.history.pushState({}, '', url.toString());
+        } catch {
+          // ignore
+        }
       }
     } catch {
       alert('לא הצלחנו לאתר את הרכב במשרד התחבורה. וודאו שהמספר תקין.');
@@ -73,10 +70,29 @@ export const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token') || params.get('d');
+    const paramPlate = params.get('plate') || params.get('p');
+    const paramPrice = params.get('price');
     const paramMode = params.get('mode');
 
     if (paramMode === 'hub') {
       setMode('hub');
+    }
+
+    if (paramPlate) {
+      setLoading(true);
+      fetchOrCreateDeal({
+        plate: paramPlate,
+        adPrice: paramPrice ? Number(paramPrice) : undefined,
+      })
+        .then((data) => {
+          if (data?.deal && data?.report) {
+            setDeal(data.deal);
+            setReport(data.report);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+      return;
     }
 
     if (token) {
@@ -103,79 +119,12 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Search Modal */}
-      {searchOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.75)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 150,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
-          onClick={() => setSearchOpen(false)}
-        >
-          <div
-            className="hcard"
-            style={{
-              width: '100%',
-              maxWidth: '360px',
-              padding: '24px',
-              borderRadius: '8px',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="hkick">בדיקה חיה במאגרים הממשלתיים</div>
-            <h3 style={{ font: '900 20px/1.2 Heebo, sans-serif', margin: '6px 0 14px' }}>
-              הזנת מספר רכב לבדיקה
-            </h3>
-            <form onSubmit={handleSearchVehicle}>
-              <input
-                type="text"
-                autoFocus
-                value={searchPlate}
-                onChange={(e) => setSearchPlate(e.target.value.replace(/\D/g, ''))}
-                placeholder="למשל: 70086701"
-                maxLength={8}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  fontSize: '22px',
-                  textAlign: 'center',
-                  fontFamily: 'var(--mono-font)',
-                  fontWeight: 700,
-                  letterSpacing: '2px',
-                  border: '2px solid #0E0F11',
-                  borderRadius: '4px',
-                  marginBottom: '14px',
-                }}
-              />
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="chip"
-                  onClick={() => setSearchOpen(false)}
-                  style={{ flex: 1, padding: '12px', textAlign: 'center' }}
-                >
-                  ביטול
-                </button>
-                <button
-                  type="submit"
-                  className="btn-action-dark"
-                  style={{ flex: 2, padding: '12px' }}
-                >
-                  הפקת דוח חי ⚡
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Search & Screenshot Upload Modal */}
+      <NewVehicleModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSubmit={handleVehicleSubmit}
+      />
 
       {mode === 'hub' ? (
         <DealHub
