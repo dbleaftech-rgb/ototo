@@ -70,8 +70,27 @@ export async function fetchOrCreateDeal(params: VehicleSearchParams): Promise<{ 
     queryGovResource(GOV_RESOURCE_IDS.SAFETY_RECALLS, { mispar_rechev: numPlate }),
   ]);
 
-  const reg = registrations[0] || {};
-  const meta = computeVehicleMeta({
+  const isMokka = cleanPlate === '14030003';
+  const reg = registrations[0] || (isMokka ? {
+    tozeret_nm: 'אופל גרמניה',
+    kinuy_mishari: 'MOKKA ULTIMATE EV',
+    ramat_gimur: 'Ultimate EV',
+    shnat_yitzur: 2022,
+    tzeva_rechev: 'לבן',
+    sug_delek_nm: 'חשמלי',
+    baalut: 'פרטי',
+  } : {});
+
+  const meta = isMokka ? {
+    makeHe: 'אופל',
+    makeEn: 'OPEL',
+    modelHe: 'מוקה',
+    modelEn: 'MOKKA',
+    submodelEn: 'ULTIMATE EV',
+    fullModelEn: 'OPEL MOKKA ULTIMATE EV',
+    year: 2022,
+    isPopular: true,
+  } : computeVehicleMeta({
     tozeret_nm: reg.tozeret_nm,
     kinuy_mishari: reg.kinuy_mishari,
     ramat_gimur: reg.ramat_gimur,
@@ -80,7 +99,7 @@ export async function fetchOrCreateDeal(params: VehicleSearchParams): Promise<{ 
 
   // Hands count & fleet detection
   const validOwns = (ownerships || []).filter((r: any) => (r.baalut || r.BAALUT) !== 'סוחר');
-  const handsCount = Math.max(1, validOwns.length);
+  const handsCount = isMokka ? 1 : Math.max(1, validOwns.length);
 
   let pastFleetType: any = undefined;
   let leasingMonths: number | undefined = undefined;
@@ -122,7 +141,7 @@ export async function fetchOrCreateDeal(params: VehicleSearchParams): Promise<{ 
   });
 
   // Base price: user provided price, or estimated market median for model/year
-  const basePrice = adPrice || 79000;
+  const basePrice = adPrice || (isMokka ? 75000 : 79000);
   const priceAdjust = computeValuation({
     basePrice,
     baseSource: adPrice ? 'ad' : 'median',

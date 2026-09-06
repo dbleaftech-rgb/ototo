@@ -65,14 +65,21 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
           if (fnMatch) detectedPlate = fnMatch[0];
         }
 
+        if (detectedPrice) {
+          setAdPrice(detectedPrice.toLocaleString());
+        }
+
         if (detectedPlate) {
           setPlate(detectedPlate);
-          if (detectedPrice) {
-            setAdPrice(detectedPrice.toLocaleString());
-          }
           setExtractedSuccess(true);
         } else {
-          setExtractionError('לא הצלחנו לזהות את לוחית הרישוי בצילום. אנא הזינו אותה ידנית.');
+          // Plate is on car bumper only
+          setIsEditingExtracted(true);
+          if (detectedPrice) {
+            setExtractionError('מחיר המודעה זוהה בהצלחה (₪' + detectedPrice.toLocaleString() + '). מספר הרישוי מופיע על גבי הפגוש — אנא הזינו אותו:');
+          } else {
+            setExtractionError('לא הצלחנו לזהות את לוחית הרישוי בצילום. אנא הזינו אותה ידנית.');
+          }
         }
       } catch (err) {
         console.error('Extraction error:', err);
@@ -295,6 +302,14 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
                       או נסו חילוץ מודעה לדוגמה:
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handlePresetSelect('14030003', 75000, "אופל מוקה")}
+                        className="chip"
+                        style={{ fontSize: '11px', padding: '5px 10px', cursor: 'pointer' }}
+                      >
+                        ⚡ מוקה 2022
+                      </button>
                       <button
                         type="button"
                         onClick={() => handlePresetSelect('10976303', 135000, "סוזוקי ג'ימני")}

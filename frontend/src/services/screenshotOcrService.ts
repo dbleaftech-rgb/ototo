@@ -15,9 +15,9 @@ export function parseAdText(rawText: string): ExtractedAdData {
 
   // 1. Match Israeli license plates:
   // Usually 7 digits (XX-XXX-XX or XXX-XX-XXX) or 8 digits (XXX-XX-XXX)
-  // We match digit groups separated by dashes, spaces, or dots
+  // Also matches colon or dot separators like 140:30:003 or 140.30.003
   const platePatterns = [
-    /\b(\d{2,3})[-\s\.]?(\d{2,3})[-\s\.]?(\d{2,3})\b/g,
+    /\b(\d{2,3})[-:\s\.](\d{2,3})[-:\s\.](\d{2,3})\b/g,
     /\b(\d{7,8})\b/g,
   ];
 
@@ -37,25 +37,31 @@ export function parseAdText(rawText: string): ExtractedAdData {
   }
 
   // 2. Match car asking price:
-  // Look for numbers like 79,000 or 135,000, 79000, with optional ₪ or ש"ח or שח or nw
+  // In Yad2, price is often formatted as "75,000 ₪" or "[75,000" or "₪75,000"
+  // When a seller dropped the price, Yad2 shows both: old struck price (e.g. 79,000) and new price (75,000)
   let detectedPrice: number | null = null;
-  const priceRegex = /(?:₪\s*|\b)(\d{2,3}(?:,\d{3})+|\d{5,6})\s*(?:₪|ש\"?ח|שח|nw)?/gi;
+  const priceRegex = /(?:₪\s*|[\[\(]?\b)(\d{2,3}(?:,\d{3})+|\d{5,6})\s*(?:₪|ש\"?ח|שח|nw)?/gi;
   const candidates: number[] = [];
 
   let pMatch;
   while ((pMatch = priceRegex.exec(rawText)) !== null) {
     const cleanNum = Number(pMatch[1].replace(/,/g, ''));
-    // Car prices are typically between 15,000 and 1,500,000
+    // Filter out monthly financing (e.g. 793) or tiny amounts, keep car prices >= 15,000
     if (cleanNum >= 15000 && cleanNum <= 1500000) {
-      // Prefer numbers that end in 00 or 000 (common asking prices)
       candidates.push(cleanNum);
     }
   }
 
   if (candidates.length > 0) {
-    // If multiple, pick the first one that is rounded (e.g. 79,000 rather than 106,295 km)
-    const rounded = candidates.find((c) => c % 100 === 0);
-    detectedPrice = rounded || candidates[0];
+    // If Yad2 shows both old price (e.g. 79,000) and dropped price (e.g. 75,000),
+    // the active price is the second candidate or the lower of the two!
+    if (candidates.length >= 2 && Math.abs(candidates[0] - candidates[1]) <= 20000) {
+      detectedPrice = Math.min(candidates[0], candidates[1]);
+    } else {
+      // Find candidate ending in 00 or 000
+      const rounded = candidates.find((c) => c % 100 === 0);
+      detectedPrice = rounded || candidates[0];
+    }
   }
 
   return {

@@ -274,7 +274,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                   textTransform: 'uppercase',
                 }}
               >
-                {meta.modelLine || meta.model || 'JIMNY'}
+                {meta.modelLine || meta.modelEn || meta.model || 'SPORTAGE'}
               </h1>
               <div
                 dir="ltr"
@@ -286,7 +286,7 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                   textTransform: 'uppercase',
                 }}
               >
-                {[meta.makeEn || 'SUZUKI', meta.subModel || 'GLX', meta.fuelEn || 'PETROL', meta.year || 2022]
+                {[meta.makeEn || 'KIA', meta.subModel || meta.submodelEn || 'URBAN', meta.fuelEn || 'PETROL', meta.year || 2022]
                   .filter(Boolean)
                   .join('  ·  ')}
               </div>
