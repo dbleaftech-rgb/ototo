@@ -10,6 +10,7 @@ export interface CarAssetResult {
   plateScale: number;
   modelId: string;
   isBlack: boolean;
+  isGeneric?: boolean;
 }
 
 export function resolveCarAsset(params: CarAssetParams): CarAssetResult {
@@ -23,6 +24,7 @@ export function resolveCarAsset(params: CarAssetParams): CarAssetResult {
 
   const colorKey = isBlack ? 'black' : 'white';
 
+  // 1. Suzuki Jimny
   if (combined.includes('jimny') || combined.includes("ג'ימני") || combined.includes('גימני')) {
     return {
       src: `/assets/cars/suzuki-jimny/${colorKey}.png`,
@@ -30,9 +32,23 @@ export function resolveCarAsset(params: CarAssetParams): CarAssetResult {
       plateScale: 0.85,
       modelId: 'suzuki-jimny',
       isBlack,
+      isGeneric: false,
     };
   }
 
+  // 2. Opel Mokka
+  if (combined.includes('mokka') || combined.includes('מוקה') || combined.includes('opel') || combined.includes('אופל')) {
+    return {
+      src: `/assets/cars/opel-mokka/${colorKey}.png?v=4`,
+      plateBottomPct: '26.8%',
+      plateScale: 0.84,
+      modelId: 'opel-mokka',
+      isBlack,
+      isGeneric: false,
+    };
+  }
+
+  // 3. Kia Picanto
   if (combined.includes('picanto') || combined.includes('פיקנטו')) {
     return {
       src: `/assets/cars/kia-picanto/${colorKey}.png`,
@@ -40,9 +56,11 @@ export function resolveCarAsset(params: CarAssetParams): CarAssetResult {
       plateScale: 0.82,
       modelId: 'kia-picanto',
       isBlack,
+      isGeneric: false,
     };
   }
 
+  // 4. Hyundai Tucson
   if (combined.includes('tucson') || combined.includes('טוסון')) {
     return {
       src: `/assets/cars/hyundai-tucson/${colorKey}.png`,
@@ -50,15 +68,29 @@ export function resolveCarAsset(params: CarAssetParams): CarAssetResult {
       plateScale: 0.86,
       modelId: 'hyundai-tucson',
       isBlack,
+      isGeneric: false,
     };
   }
 
-  // Default fallback: Kia Sportage (Israel's #1 popular family SUV)
+  // 5. Kia Sportage
+  if (combined.includes('sportage') || combined.includes('ספורטאז')) {
+    return {
+      src: `/assets/cars/kia-sportage/${colorKey}.png`,
+      plateBottomPct: '27.5%',
+      plateScale: 0.88,
+      modelId: 'kia-sportage',
+      isBlack,
+      isGeneric: false,
+    };
+  }
+
+  // 6. Unknown / Uncatalogued model: Neutral sleek automotive silhouette (NEVER show wrong competitor brand!)
   return {
-    src: `/assets/cars/kia-sportage/${colorKey}.png`,
-    plateBottomPct: '27.5%',
+    src: `/assets/cars/generic/silhouette.svg`,
+    plateBottomPct: '25%',
     plateScale: 0.88,
-    modelId: 'kia-sportage',
+    modelId: 'generic-silhouette',
     isBlack,
+    isGeneric: true,
   };
 }

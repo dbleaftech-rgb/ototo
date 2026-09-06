@@ -69,19 +69,27 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
   const gap = adPrice - finalPrice;
 
   // Real specs values from backend
-  const handsCount = deal?.currentHands || report?.vehicleMeta?.hand || report?.currentHands || 3;
-  const kmVal = report?.lastTestKm || deal?.declaredKm || 35908;
+  const handsCount = deal?.currentHands || report?.vehicleMeta?.hand || report?.currentHands || 1;
+  const kmVal = report?.lastTestKm || deal?.declaredKm;
+  const currentYear = 2026;
+  const vehicleAge = meta.year ? currentYear - meta.year : 5;
+  const kmDisplay = kmVal
+    ? Number(kmVal).toLocaleString()
+    : vehicleAge <= 3
+    ? 'חדש (פטור מטסט)'
+    : 'לא צוין';
+
   const fuelVal = meta.fuelHe || 'בנזין';
   const colorVal = meta.color || report?.vehicleMeta?.color || 'שחור';
   const carAsset = resolveCarAsset({
     make: meta.makeEn || deal?.make,
-    model: meta.modelLine || meta.vehicleTitle || deal?.model,
+    model: meta.modelLine || meta.modelEn || meta.vehicleTitle || deal?.model,
     color: colorVal,
   });
 
   const specsList = [
     { label: 'יד', value: `יד ${handsCount}` },
-    { label: 'ק״מ', value: Number(kmVal).toLocaleString() },
+    { label: 'ק״מ', value: kmDisplay },
     { label: 'דלק', value: fuelVal },
     { label: 'צבע', value: colorVal },
     { label: 'מבוקש', value: `₪ ${adPrice.toLocaleString()}` },
@@ -286,9 +294,14 @@ export const Story: React.FC<StoryProps> = ({ deal, report, onUnlock, onSearchCl
                   textTransform: 'uppercase',
                 }}
               >
-                {[meta.makeEn || 'KIA', meta.subModel || meta.submodelEn || 'URBAN', meta.fuelEn || 'PETROL', meta.year || 2022]
-                  .filter(Boolean)
-                  .join('  ·  ')}
+                {(() => {
+                  const make = meta.makeEn || deal?.make?.toUpperCase() || 'OPEL';
+                  const sub = meta.subModel || meta.submodelEn || '';
+                  const hasEv = sub.includes('EV') || sub.includes('ELECTRIC');
+                  const fuelTag = hasEv ? null : (fuelVal.includes('חשמל') || meta.fuelEn?.includes('ELEC') ? 'ELECTRIC' : (meta.fuelEn || 'PETROL'));
+                  const year = meta.year || deal?.year || 2022;
+                  return [make, sub, fuelTag, year].filter(Boolean).join('  ·  ');
+                })()}
               </div>
             </div>
 

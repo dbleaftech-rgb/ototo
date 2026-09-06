@@ -3,6 +3,7 @@ import Tesseract from 'tesseract.js';
 export interface ExtractedAdData {
   plate: string | null;
   adPrice: number | null;
+  declaredKm?: number | null;
   rawText?: string;
   confidence?: number;
 }
@@ -64,9 +65,21 @@ export function parseAdText(rawText: string): ExtractedAdData {
     }
   }
 
+  // 3. Match declared KM if present (e.g. 35,000 ק״מ or 45,000 km)
+  let detectedKm: number | null = null;
+  const kmRegex = /(\d{1,3}(?:,\d{3})+|\d{4,6})\s*(?:ק"?מ|ק״מ|קמ|km|KM)/i;
+  const kmMatch = kmRegex.exec(rawText);
+  if (kmMatch) {
+    const kmNum = Number(kmMatch[1].replace(/,/g, ''));
+    if (kmNum >= 1000 && kmNum <= 500000) {
+      detectedKm = kmNum;
+    }
+  }
+
   return {
     plate: detectedPlate,
     adPrice: detectedPrice,
+    declaredKm: detectedKm,
     rawText,
   };
 }

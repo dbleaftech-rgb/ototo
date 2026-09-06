@@ -36,7 +36,7 @@ export const App: React.FC = () => {
       });
   };
 
-  const handleVehicleSubmit = async (params: { plate: string; adPrice?: number; screenshotUrl?: string }) => {
+  const handleVehicleSubmit = async (params: { plate: string; adPrice?: number; declaredKm?: number; screenshotUrl?: string }) => {
     setSearchPlate(params.plate);
     setSearching(true);
     setSearchOpen(false);
@@ -44,6 +44,7 @@ export const App: React.FC = () => {
       const data = await fetchOrCreateDeal({
         plate: params.plate,
         adPrice: params.adPrice,
+        declaredKm: params.declaredKm,
         screenshotUrl: params.screenshotUrl,
         buyerPhone: '0501234567',
       });

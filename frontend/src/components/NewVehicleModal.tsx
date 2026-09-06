@@ -4,7 +4,7 @@ import { extractDataFromScreenshot } from '../services/screenshotOcrService';
 interface NewVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (params: { plate: string; adPrice?: number; screenshotUrl?: string }) => void;
+  onSubmit: (params: { plate: string; adPrice?: number; declaredKm?: number; screenshotUrl?: string }) => void;
 }
 
 export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
@@ -15,6 +15,7 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
   const [tab, setTab] = useState<'screenshot' | 'manual'>('screenshot');
   const [plate, setPlate] = useState('');
   const [adPrice, setAdPrice] = useState('');
+  const [declaredKm, setDeclaredKm] = useState('');
   const [screenshotData, setScreenshotData] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [extractedSuccess, setExtractedSuccess] = useState(false);
@@ -33,6 +34,7 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
     setExtractionError(null);
     setPlate('');
     setAdPrice('');
+    setDeclaredKm('');
   };
 
   const handleImageFile = async (file: File) => {
@@ -69,6 +71,10 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
           setAdPrice(detectedPrice.toLocaleString());
         }
 
+        if (result.declaredKm) {
+          setDeclaredKm(result.declaredKm.toLocaleString());
+        }
+
         if (detectedPlate) {
           setPlate(detectedPlate);
           setExtractedSuccess(true);
@@ -91,7 +97,7 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handlePresetSelect = async (samplePlate: string, samplePrice: number, label: string) => {
+  const handlePresetSelect = async (samplePlate: string, samplePrice: number, label: string, sampleKm?: number) => {
     resetScreenshotState();
     setIsScanning(true);
     setScreenshotData('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180" viewBox="0 0 300 180"><rect width="300" height="180" fill="%230e0f11"/><text x="150" y="80" fill="%23d7ff3e" font-family="sans-serif" font-weight="bold" font-size="18" text-anchor="middle">צילום מסך יד2: ' + encodeURIComponent(label) + '</text><text x="150" y="115" fill="%23ffffff" font-family="monospace" font-size="16" text-anchor="middle">' + samplePlate + ' · ₪' + samplePrice.toLocaleString() + '</text></svg>');
@@ -100,6 +106,7 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
     setTimeout(() => {
       setPlate(samplePlate);
       setAdPrice(samplePrice.toLocaleString());
+      if (sampleKm) setDeclaredKm(sampleKm.toLocaleString());
       setIsScanning(false);
       setExtractedSuccess(true);
     }, 650);
@@ -114,9 +121,11 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
     }
 
     const parsedPrice = adPrice ? Number(adPrice.replace(/\D/g, '')) : undefined;
+    const parsedKm = declaredKm ? Number(declaredKm.replace(/\D/g, '')) : undefined;
     onSubmit({
       plate: cleanPlate,
       adPrice: parsedPrice && parsedPrice > 1000 ? parsedPrice : undefined,
+      declaredKm: parsedKm && parsedKm > 0 ? parsedKm : undefined,
       screenshotUrl: screenshotData || undefined,
     });
   };
@@ -526,6 +535,29 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
                             fontWeight: 600,
                             borderRadius: '4px',
                             border: '1px solid rgba(14,15,17,0.2)',
+                            marginBottom: '8px',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>
+                          ק״מ מוצהר במודעה (אופציונלי):
+                        </label>
+                        <input
+                          type="text"
+                          value={declaredKm}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            setDeclaredKm(val ? Number(val).toLocaleString() : '');
+                          }}
+                          placeholder="למשל: 35,000"
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            borderRadius: '4px',
+                            border: '1px solid rgba(14,15,17,0.2)',
                             boxSizing: 'border-box',
                           }}
                         />
@@ -631,6 +663,40 @@ export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({
                     setAdPrice(val ? Number(val).toLocaleString() : '');
                   }}
                   placeholder="למשל: 79,000 ₪"
+                  style={{
+                    width: '100%',
+                    padding: '11px',
+                    fontSize: '15px',
+                    textAlign: 'center',
+                    fontFamily: 'Heebo, sans-serif',
+                    fontWeight: 600,
+                    border: '1px solid rgba(14, 15, 17, 0.2)',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    font: '700 12px Heebo, sans-serif',
+                    color: 'rgba(14, 15, 17, 0.75)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  ק״מ מוצהר במודעה (אופציונלי):
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={declaredKm}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setDeclaredKm(val ? Number(val).toLocaleString() : '');
+                  }}
+                  placeholder="למשל: 45,000 ק״מ"
                   style={{
                     width: '100%',
                     padding: '11px',

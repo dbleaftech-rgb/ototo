@@ -24,6 +24,7 @@ async function queryGovResource(resourceId: string, filters: Record<string, any>
 export interface VehicleSearchParams {
   plate: string;
   adPrice?: number;
+  declaredKm?: number;
   screenshotUrl?: string;
   buyerPhone?: string;
 }
@@ -87,6 +88,8 @@ export async function fetchOrCreateDeal(params: VehicleSearchParams): Promise<{ 
     modelHe: 'מוקה',
     modelEn: 'MOKKA',
     submodelEn: 'ULTIMATE EV',
+    subModel: 'ULTIMATE EV',
+    modelLine: 'MOKKA',
     fullModelEn: 'OPEL MOKKA ULTIMATE EV',
     year: 2022,
     isPopular: true,
@@ -150,7 +153,7 @@ export async function fetchOrCreateDeal(params: VehicleSearchParams): Promise<{ 
     pastFleetType,
     leasingMonths,
     vehicleYear: meta.year || 2020,
-    actualKm: lastTestKm,
+    actualKm: params.declaredKm || lastTestKm,
   });
 
   const deal = {
@@ -158,6 +161,7 @@ export async function fetchOrCreateDeal(params: VehicleSearchParams): Promise<{ 
     dealToken: `tok_${cleanPlate}`,
     plate: cleanPlate,
     adPrice,
+    declaredKm: params.declaredKm,
     currentHands: handsCount,
     stage: 'free_info',
     reportState: 'ready',
